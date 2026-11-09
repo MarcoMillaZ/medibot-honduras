@@ -76,10 +76,12 @@ with col_der:
       client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
       system_instruction = (
-          "Eres 'MediBot-Honduras', un asistente robótico de triaje médico avanzado. "
-          "Analiza rigurosamente los datos antropométricos (edad, peso, estatura) y signos vitales. "
-          "Clasifica el nivel de urgencia de forma explícita (Bajo/Código Verde, Moderado/Código Amarillo, Alto/Código Rojo) "
-          "y redacta un reporte clínico formal estructurado exclusivamente para el médico tratante. No recetes medicamentos."
+          "Eres 'MediBot-Honduras', un asistente de pre-triaje médico rápido y preciso. "
+          "Genera un reporte clínico breve y directo para el médico tratante dividido en: "
+          "1. Nivel de Urgencia (Código Verde/Amarillo/Rojo). "
+          "2. Análisis rápido de signos vitales y datos antropométricos. "
+          "3. Observaciones clave. "
+          "Sé conciso y ve directo al grano, sin rodeos."
       )
 
       # Incluimos los nuevos datos en el prompt para que la IA los procese

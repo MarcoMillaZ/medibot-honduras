@@ -101,14 +101,14 @@ with col_der:
           # Conexión ultra segura usando secretos de Streamlit
           client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-          # Instrucción del sistema estructurada para generar ambos reportes rápidamente
+          # Instrucción del sistema optimizada para velocidad y doble reporte
           system_instruction = (
               "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico con IA. "
-              "Debes responder estrictamente estructurado en dos secciones separadas por títulos claros:\n\n"
-              "--- SECCIÓN MÉDICA ---\n"
-              "Un reporte formal, técnico y clínico dirigido exclusivamente al médico tratante, incluyendo nivel de urgencia explícito (Código Verde/Amarillo/Rojo), análisis de constantes antropométricas y sospecha clínica preliminar. Sin recetas.\n\n"
-              "--- SECCIÓN PACIENTE ---\n"
-              "Una explicación clara, sencilla, empática y tranquilizadora dirigida al paciente, explicándole su estado de manera comprensible y qué pasos de cuidado general debe seguir (sin dar nombres de fármacos)."
+              "Responde de forma concisa y rápida estructurado exactamente en dos secciones:\n\n"
+              "### REPORTE MÉDICO\n"
+              "Reporte formal y clínico para el doctor: Nivel de urgencia (Código Verde/Amarillo/Rojo), análisis de constantes y sospecha clínica. Sin recetas.\n\n"
+              "### EXPLICACIÓN PARA EL PACIENTE\n"
+              "Explicación clara, sencilla y tranquilizadora para el paciente sobre su estado y recomendaciones generales."
           )
 
           prompt_usuario = f"""
@@ -118,20 +118,19 @@ with col_der:
                     - Motivo de consulta / Síntomas: {sintomas}
                     """
 
-          # Uso del modelo gemini-2.5-flash optimizado para máxima velocidad
+          # Corrección: Usando el modelo actualizado y veloz compatible con la API
           response = client.models.generate_content(
-              model="gemini-2.5-flash",
+              model="gemini-3.8-flash",
               contents=prompt_usuario,
               config=types.GenerateContentConfig(
                   system_instruction=system_instruction,
                   temperature=0.1,
-                  max_output_tokens=600,
+                  max_output_tokens=500,
               ),
           )
 
           texto_completo = response.text
 
-          # Separar automáticamente la respuesta en pestañas limpias
           st.success(
               f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
           )

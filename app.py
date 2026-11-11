@@ -95,63 +95,72 @@ with col_der:
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
       with st.spinner(
-          "Analizando parámetros biométricos y redactando reportes..."
+          "Analizando biométricos y generando reportes especializados..."
       ):
         try:
           # Conexión ultra segura usando secretos de Streamlit
           client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-          # Instrucción del sistema optimizada
-          system_instruction = (
-              "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico con IA. "
-              "Genera un reporte clínico estructurado y completo. "
-              "Usa exactamente este formato:\n"
-              "### REPORTE MÉDICO\n"
-              "- Nivel de Urgencia: (Verde / Amarillo / Rojo)\n"
-              "- Análisis Clínico: (Breve evaluación de constantes y síntomas)\n\n"
-              "### EXPLICACIÓN PARA EL PACIENTE\n"
-              "- Estado y Recomendaciones: (Mensaje claro, empático y directo para el paciente)"
-          )
-
-          prompt_usuario = f"""
-                    Paciente: {nombre_paciente}
+          prompt_base = f"""
+                    Datos del Paciente:
+                    - Nombre: {nombre_paciente}
                     - Edad: {edad} años | Peso: {peso} kg | Estatura: {estatura} cm
                     - Temperatura: {temperatura} °C | SpO2: {oxigeno}% | Pulso: {pulso} lpm
-                    - Motivo de consulta / Síntomas: {sintomas}
+                    - Síntomas reportados: {sintomas}
                     """
 
-          # Llamada con tokens suficientes para que no se corte el texto
-          response = client.models.generate_content(
+          # 1. Llamada para el Reporte Clínico Formal (Médico)
+          prompt_medico = (
+              prompt_base
+              + "\nGenera un REPORTE MÉDICO formal, detallado y técnico para el doctor tratante. Incluye:"
+              "\n1. Nivel de Urgencia (Código Verde, Amarillo o Rojo con justificación clínica)."
+              "\n2. Análisis Biométrico y Hemodinámico (Evaluación de temperatura, SpO2, pulso e IMC)."
+              "\n3. Diagnóstico Presuntivo / Sospecha Clínica."
+              "\n4. Recomendaciones de exploración física prioritaria. (Sin prescribir medicamentos)."
+          )
+
+          resp_medico = client.models.generate_content(
               model="gemini-3.8-flash",
-              contents=prompt_usuario,
+              contents=prompt_medico,
               config=types.GenerateContentConfig(
-                  system_instruction=system_instruction,
-                  temperature=0.1,
-                  max_output_tokens=900,  # Aumentado para que el texto salga completo
+                  temperature=0.1, max_output_tokens=700
               ),
           )
 
-          texto_completo = response.text
+          # 2. Llamada para la Explicación Amigable (Paciente)
+          prompt_paciente = (
+              prompt_base
+              + "\nGenera una EXPLICACIÓN PARA EL PACIENTE redactada en un tono humano, empático, claro y tranquilizador. Explícale de manera muy sencilla qué significan sus signos vitales actuales, qué podría estar ocurriendo de forma general, qué signos de alerta debe vigilar en casa y qué medidas de cuidado general seguir (sin dar nombres de fármacos)."
+          )
+
+          resp_paciente = client.models.generate_content(
+              model="gemini-3.8-flash",
+              contents=prompt_paciente,
+              config=types.GenerateContentConfig(
+                  temperature=0.3, max_output_tokens=700
+              ),
+          )
 
           st.success(
               f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
           )
 
+          # Pestañas independientes con su respectiva información detallada
           tab_medico, tab_paciente = st.tabs(
               ["📋 Reporte para el Médico", "👤 Explicación para el Paciente"]
           )
 
           with tab_medico:
             st.markdown(
-                "<div style='background-color: #0f141f; padding: 20px; border-radius"
-                f" 10px; border: 1px solid #1e293b;'>{texto_completo}</div>",
+                "<div style='background-color: #0f141f; padding: 20px; border-radius:"
+                f" 10px; border: 1px solid #1e293b;'>{resp_medico.text}</div>",
                 unsafe_allow_html=True,
             )
 
           with tab_paciente:
             st.markdown(
-                "<div style='background-color: #0f141f; padding: 20px; border-radius"
-                f" 10px; border: 1px solid #1e293b;'>{texto_completo}</div>",
+                "<div style='background-color: #0f141f; padding: 20px; border-radius:"
+                f" 10px; border: 1px solid #1e293b;'>{resp_paciente.text}</div>",
                 unsafe_allow_html=True,
             )
 

@@ -94,58 +94,55 @@ with col_der:
     if not nombre_paciente.strip():
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
-      with st.spinner(
-          "Analizando biométricos y generando reportes especializados..."
-      ):
+      with st.spinner("Analizando y generando reportes instantáneos..."):
         try:
-          # Conexión ultra segura usando secretos de Streamlit
+          # Conexión usando secretos de Streamlit
           client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-          prompt_base = f"""
-                    Datos del Paciente:
-                    - Nombre: {nombre_paciente}
+          # Instrucción ultra optimizada para una sola llamada rápida que se divide sola
+          system_instruction = (
+              "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico con IA. "
+              "Debes responder estrictamente dividiendo tu respuesta en dos bloques separados por esta etiqueta exacta: [SEPARADOR_REPORTES].\n"
+              "Primer bloque: Un reporte clínico formal, detallado y técnico para el médico (Nivel de Urgencia, análisis biométrico, sospecha clínica).\n"
+              "Segundo bloque: Una explicación clara, amigable y tranquilizadora para el paciente sobre su estado y recomendaciones generales.\n"
+              "Sé directo, profesional y conciso para garantizar máxima velocidad."
+          )
+
+          prompt_usuario = f"""
+                    Paciente: {nombre_paciente}
                     - Edad: {edad} años | Peso: {peso} kg | Estatura: {estatura} cm
                     - Temperatura: {temperatura} °C | SpO2: {oxigeno}% | Pulso: {pulso} lpm
-                    - Síntomas reportados: {sintomas}
+                    - Motivo de consulta / Síntomas: {sintomas}
                     """
 
-          # 1. Llamada para el Reporte Clínico Formal (Médico)
-          prompt_medico = (
-              prompt_base
-              + "\nGenera un REPORTE MÉDICO formal, detallado y técnico para el doctor tratante. Incluye:"
-              "\n1. Nivel de Urgencia (Código Verde, Amarillo o Rojo con justificación clínica)."
-              "\n2. Análisis Biométrico y Hemodinámico (Evaluación de temperatura, SpO2, pulso e IMC)."
-              "\n3. Diagnóstico Presuntivo / Sospecha Clínica."
-              "\n4. Recomendaciones de exploración física prioritaria. (Sin prescribir medicamentos)."
-          )
-
-          resp_medico = client.models.generate_content(
+          # Una sola llamada optimizada al modelo más rápido con tokens amplios
+          response = client.models.generate_content(
               model="gemini-3.8-flash",
-              contents=prompt_medico,
+              contents=prompt_usuario,
               config=types.GenerateContentConfig(
-                  temperature=0.1, max_output_tokens=700
+                  system_instruction=system_instruction,
+                  temperature=0.1,
+                  max_output_tokens=1000,
               ),
           )
 
-          # 2. Llamada para la Explicación Amigable (Paciente)
-          prompt_paciente = (
-              prompt_base
-              + "\nGenera una EXPLICACIÓN PARA EL PACIENTE redactada en un tono humano, empático, claro y tranquilizador. Explícale de manera muy sencilla qué significan sus signos vitales actuales, qué podría estar ocurriendo de forma general, qué signos de alerta debe vigilar en casa y qué medidas de cuidado general seguir (sin dar nombres de fármacos)."
-          )
+          texto_total = response.text
 
-          resp_paciente = client.models.generate_content(
-              model="gemini-3.8-flash",
-              contents=prompt_paciente,
-              config=types.GenerateContentConfig(
-                  temperature=0.3, max_output_tokens=700
-              ),
-          )
+          # Separamos la respuesta de la IA en los dos reportes automáticamente en Python
+          if "[SEPARADOR_REPORTES]" in texto_total:
+            reporte_medico, reporte_paciente = texto_total.split(
+                "[SEPARADOR_REPORTES]", 1
+            )
+          else:
+            reporte_medico = texto_total
+            reporte_paciente = (
+                "Consulte la pestaña del médico para más detalles."
+            )
 
           st.success(
               f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
           )
 
-          # Pestañas independientes con su respectiva información detallada
           tab_medico, tab_paciente = st.tabs(
               ["📋 Reporte para el Médico", "👤 Explicación para el Paciente"]
           )
@@ -153,14 +150,14 @@ with col_der:
           with tab_medico:
             st.markdown(
                 "<div style='background-color: #0f141f; padding: 20px; border-radius:"
-                f" 10px; border: 1px solid #1e293b;'>{resp_medico.text}</div>",
+                f" 10px; border: 1px solid #1e293b;'>{reporte_medico}</div>",
                 unsafe_allow_html=True,
             )
 
           with tab_paciente:
             st.markdown(
                 "<div style='background-color: #0f141f; padding: 20px; border-radius:"
-                f" 10px; border: 1px solid #1e293b;'>{resp_paciente.text}</div>",
+                f" 10px; border: 1px solid #1e293b;'>{reporte_paciente}</div>",
                 unsafe_allow_html=True,
             )
 

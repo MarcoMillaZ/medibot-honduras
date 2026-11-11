@@ -1,139 +1,167 @@
-import time
 from google import genai
 from google.genai import types
 import streamlit as st
 
-# Configuración inicial de la página web
+# Configuración inicial de la página
 st.set_page_config(
-    page_title="MediBot-Honduras", page_icon="🤖", layout="wide"
+    page_title="MediBot-Honduras | Sistema de Pre-Triaje IA",
+    page_icon="🤖",
+    layout="wide",
 )
 
-# Estilo visual futurista tipo hospital
+# Estilo visual Futurista / Médico Minimalista (Modo Oscuro Clínico de Alta Gama)
 st.markdown(
     """
     <style>
-    .main { background-color: #0e1117; }
-    .stMetric { background-color: #1a1c23; padding: 15px; border-radius: 10px; border: 1px solid #30333d; }
+    .main { background-color: #05070b; color: #e2e8f0; }
+    .stForm { background-color: #0f141f; padding: 25px; border-radius: 12px; border: 1px solid #1e293b; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .stMetric { background-color: #131b2e; padding: 15px; border-radius: 8px; border: 1px solid #1e3a8a; }
+    h1, h2, h3 { color: #38bdf8 !important; font-family: 'Inter', sans-serif; }
+    .reportview-container { background: #05070b; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.title("🤖 MediBot-Honduras - Unidad de Pre-Triaje Clínico")
+# Encabezado con estilo de interfaz médica avanzada
 st.markdown(
-    "Sistema inteligente de asistencia médica preliminar con parámetros"
-    " antropométricos."
+    """
+    <div style='padding: 10px 0; border-bottom: 2px solid #0284c7; margin-bottom: 20px;'>
+        <h1 style='margin: 0; font-size: 2.2rem;'>🤖 MEDIBOT-HONDURAS</h1>
+        <p style='color: #94a3b8; font-size: 1.1rem; margin-top: 5px;'>Plataforma de Pre-Triaje Clínico Asistido por Inteligencia Artificial</p>
+    </div>
+""",
+    unsafe_allow_html=True,
 )
-st.markdown("---")
 
-# Dividir la pantalla en dos columnas
-col_izq, col_der = st.columns([1, 2])
+# Distribución en dos columnas principales
+col_izq, col_der = st.columns([1, 1.8], gap="large")
 
 with col_izq:
-  st.header("📊 Datos del Paciente")
+  st.markdown("### 🧬 Datos y Constantes")
   with st.form("formulario_triaje"):
-    # Nuevos campos solicitados por el usuario
-    edad = st.number_input("Edad (Años)", min_value=1, max_value=120, value=16)
-    peso = st.number_input(
-        "Peso (kg)", min_value=5.0, max_value=200.0, value=65.0, step=0.5
-    )
-    estatura = st.number_input(
-        "Estatura (cm)", min_value=50, max_value=230, value=170
+    # Campo de Nombre del Paciente
+    nombre_paciente = st.text_input(
+        "Nombre Completo del Paciente", "Ej. Juan Pérez"
     )
 
+    col_sub1, col_sub2, col_sub3 = st.columns(3)
+    with col_sub1:
+      edad = st.number_input("Edad", min_value=1, max_value=120, value=25)
+    with col_sub2:
+      peso = st.number_input(
+          "Peso (kg)", min_value=2.0, max_value=200.0, value=70.0, step=0.5
+      )
+    with col_sub3:
+      estatura = st.number_input(
+          "Estatura (cm)", min_value=40, max_value=230, value=172
+      )
+
     st.markdown("---")
-    st.subheader("Signos Vitales")
+    st.markdown("#### ⚡ Signos Vitales")
     temperatura = st.number_input(
         "Temperatura Corporal (°C)",
         min_value=34.0,
         max_value=43.0,
-        value=38.5,
+        value=37.0,
         step=0.1,
     )
     oxigeno = st.slider(
-        "Saturación de Oxígeno (SpO2 %)", min_value=50, max_value=100, value=96
+        "Saturación de Oxígeno (SpO2 %)", min_value=50, max_value=100, value=98
     )
     pulso = st.number_input(
         "Frecuencia Cardíaca (Pulso lpm)",
         min_value=30,
         max_value=220,
-        value=110,
-    )
-    sintomas = st.text_area(
-        "Síntomas y Molestias",
-        "Fiebre alta, escalofríos y dolor de garganta persistente.",
+        value=75,
     )
 
+    sintomas = st.text_area(
+        "Descripción Clínica de Síntomas",
+        "Dolor de cabeza leve, fatiga y malestar general.",
+        height=100,
+    )
+
+    st.markdown("")
     enviar = st.form_submit_button(
-        "🔍 Analizar con MediBot AI", use_container_width=True
+        "⚡ EJECUTAR PRE-TRIAJE CLÍNICO", use_container_width=True
     )
 
 with col_der:
-  st.header("📋 Panel de Diagnóstico Clínico")
+  st.markdown("### 📊 Consola de Diagnóstico e Informes")
 
   if enviar:
-    with st.spinner("Baymax analizando perfil clínico del paciente..."):
-      client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
-      system_instruction = (
-          "Eres 'MediBot-Honduras', un asistente de pre-triaje médico rápido y preciso. "
-          "Genera un reporte clínico breve y directo para el médico tratante dividido en: "
-          "1. Nivel de Urgencia (Código Verde/Amarillo/Rojo). "
-          "2. Análisis rápido de signos vitales y datos antropométricos. "
-          "3. Observaciones clave. "
-          "Sé conciso y ve directo al grano, sin rodeos."
-      )
-
-      # Incluimos los nuevos datos en el prompt para que la IA los procese
-      prompt_usuario = f"""
-            Perfil y datos clínicos del paciente:
-            - Edad: {edad} años
-            - Peso: {peso} kg
-            - Estatura: {estatura} cm
-            - Temperatura: {temperatura} °C
-            - Saturación de Oxígeno: {oxigeno}%
-            - Pulso Cardíaco: {pulso} lpm
-            - Síntomas: {sintomas}
-            
-            Genera el reporte clínico de pre-triaje estructurado.
-            """
-
-      reporte_generado = None
-      error_encontrado = None
-
-      # Conexión optimizada y rápida con reintento único
-      for intento in range(1, 3):
+    if not nombre_paciente.strip():
+      st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
+    else:
+      with st.spinner(
+          "Analizando parámetros biométricos y redactando reportes..."
+      ):
         try:
+          # Conexión ultra segura usando secretos de Streamlit
+          client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+          # Instrucción del sistema estructurada para generar ambos reportes rápidamente
+          system_instruction = (
+              "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico con IA. "
+              "Debes responder estrictamente estructurado en dos secciones separadas por títulos claros:\n\n"
+              "--- SECCIÓN MÉDICA ---\n"
+              "Un reporte formal, técnico y clínico dirigido exclusivamente al médico tratante, incluyendo nivel de urgencia explícito (Código Verde/Amarillo/Rojo), análisis de constantes antropométricas y sospecha clínica preliminar. Sin recetas.\n\n"
+              "--- SECCIÓN PACIENTE ---\n"
+              "Una explicación clara, sencilla, empática y tranquilizadora dirigida al paciente, explicándole su estado de manera comprensible y qué pasos de cuidado general debe seguir (sin dar nombres de fármacos)."
+          )
+
+          prompt_usuario = f"""
+                    Paciente: {nombre_paciente}
+                    - Edad: {edad} años | Peso: {peso} kg | Estatura: {estatura} cm
+                    - Temperatura: {temperatura} °C | SpO2: {oxigeno}% | Pulso: {pulso} lpm
+                    - Motivo de consulta / Síntomas: {sintomas}
+                    """
+
+          # Uso del modelo gemini-2.5-flash optimizado para máxima velocidad
           response = client.models.generate_content(
-              model="gemini-3.8-flash",
+              model="gemini-2.5-flash",
               contents=prompt_usuario,
               config=types.GenerateContentConfig(
                   system_instruction=system_instruction,
-                  temperature=0.2,
+                  temperature=0.1,
+                  max_output_tokens=600,
               ),
           )
-          reporte_generado = response.text
-          break
-        except Exception as e:
-          error_encontrado = str(e)
-          if "503" in str(e) or "UNAVAILABLE" in str(e):
-            time.sleep(1)
-          else:
-            break
 
-      if reporte_generado:
-        st.success("¡Análisis completado con éxito por MediBot!")
-        st.markdown("---")
-        st.markdown(reporte_generado)
-      else:
-        st.error(
-            "⚠️ El servidor de la IA tardó en responder. Error:"
-            f" {error_encontrado}"
-        )
-        st.info("Vuelve a hacer clic en el botón de analizar.")
+          texto_completo = response.text
+
+          # Separar automáticamente la respuesta en pestañas limpias
+          st.success(
+              f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
+          )
+
+          tab_medico, tab_paciente = st.tabs(
+              ["📋 Reporte para el Médico", "👤 Explicación para el Paciente"]
+          )
+
+          with tab_medico:
+            st.markdown(
+                "<div style='background-color: #0f141f; padding: 20px; border-radius"
+                f" 10px; border: 1px solid #1e293b;'>{texto_completo}</div>",
+                unsafe_allow_html=True,
+            )
+
+          with tab_paciente:
+            st.markdown(
+                "<div style='background-color: #0f141f; padding: 20px; border-radius"
+                f" 10px; border: 1px solid #1e293b;'>{texto_completo}</div>",
+                unsafe_allow_html=True,
+            )
+
+        except Exception as e:
+          st.error(
+              "⚠️ Error de conexión con el motor de IA. Verifica tu API Key en"
+              f" los Secrets. Detalle: {e}"
+          )
   else:
     st.info(
-        "👈 Ingresa los datos del paciente en el panel izquierdo (Edad, Peso,"
-        " Estatura y Signos Vitales) y presiona el botón para generar el informe"
-        " médico."
+        "👈 Ingresa el nombre, datos antropométricos y signos vitales en el panel"
+        " izquierdo y presiona **'Ejecutar Pre-Triaje Clínico'** para generar"
+        " los reportes instantáneos."
     )

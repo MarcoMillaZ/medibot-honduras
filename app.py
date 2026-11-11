@@ -101,14 +101,16 @@ with col_der:
           # Conexión ultra segura usando secretos de Streamlit
           client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-          # Instrucción del sistema optimizada para velocidad y doble reporte
+          # Instrucción del sistema optimizada
           system_instruction = (
               "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico con IA. "
-              "Responde de forma concisa y rápida estructurado exactamente en dos secciones:\n\n"
+              "Genera un reporte clínico estructurado y completo. "
+              "Usa exactamente este formato:\n"
               "### REPORTE MÉDICO\n"
-              "Reporte formal y clínico para el doctor: Nivel de urgencia (Código Verde/Amarillo/Rojo), análisis de constantes y sospecha clínica. Sin recetas.\n\n"
+              "- Nivel de Urgencia: (Verde / Amarillo / Rojo)\n"
+              "- Análisis Clínico: (Breve evaluación de constantes y síntomas)\n\n"
               "### EXPLICACIÓN PARA EL PACIENTE\n"
-              "Explicación clara, sencilla y tranquilizadora para el paciente sobre su estado y recomendaciones generales."
+              "- Estado y Recomendaciones: (Mensaje claro, empático y directo para el paciente)"
           )
 
           prompt_usuario = f"""
@@ -118,14 +120,14 @@ with col_der:
                     - Motivo de consulta / Síntomas: {sintomas}
                     """
 
-          # Corrección: Usando el modelo actualizado y veloz compatible con la API
+          # Llamada con tokens suficientes para que no se corte el texto
           response = client.models.generate_content(
               model="gemini-3.8-flash",
               contents=prompt_usuario,
               config=types.GenerateContentConfig(
                   system_instruction=system_instruction,
                   temperature=0.1,
-                  max_output_tokens=500,
+                  max_output_tokens=900,  # Aumentado para que el texto salga completo
               ),
           )
 

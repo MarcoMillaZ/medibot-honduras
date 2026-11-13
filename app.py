@@ -1,5 +1,3 @@
-from google import genai
-from google.genai import types
 import streamlit as st
 
 # Configuración inicial de la página
@@ -9,7 +7,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Estilo visual Futurista / Médico Minimalista
+# Estilo visual Futurista / Médico Minimalista (Modo Oscuro Clínico)
 st.markdown(
     """
     <style>
@@ -43,14 +41,14 @@ with col_izq:
 
     col_sub1, col_sub2, col_sub3 = st.columns(3)
     with col_sub1:
-      edad = st.number_input("Edad", min_value=1, max_value=120, value=25)
+      edad = st.number_input("Edad", min_value=1, max_value=120, value=16)
     with col_sub2:
       peso = st.number_input(
-          "Peso (kg)", min_value=2.0, max_value=200.0, value=70.0, step=0.5
+          "Peso (kg)", min_value=2.0, max_value=200.0, value=60.0, step=0.5
       )
     with col_sub3:
       estatura = st.number_input(
-          "Estatura (cm)", min_value=40, max_value=230, value=172
+          "Estatura (cm)", min_value=40, max_value=230, value=170
       )
 
     st.markdown("---")
@@ -89,67 +87,58 @@ with col_der:
     if not nombre_paciente.strip():
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
-      with st.spinner("Generando reporte clínico instantáneo..."):
-        reporte_medico = ""
-        reporte_paciente = ""
+      with st.spinner("Procesando biométricos en tiempo real..."):
+        # Cálculo analítico clínico instantáneo (Simulación de Motor Experto)
+        imc = peso / ((estatura / 100) ** 2)
 
-        try:
-          if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"]:
-            client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
-            # Prompt ultra directo y limpio para evitar que la IA se equivoque
-            prompt = f"""
-                        Actúa como MediBot-Honduras. Analiza al paciente {nombre_paciente} (Edad: {edad}, Peso: {peso}kg, Estatura: {estatura}cm, Temp: {temperatura}°C, SpO2: {oxigeno}%, Pulso: {pulso}lpm, Síntomas: {sintomas}).
-                        
-                        Escribe tu respuesta dividida exactamente en estas dos secciones usando estos títulos:
-                        ---MEDICO---
-                        (Aquí escribe un reporte clínico formal, nivel de urgencia y análisis técnico para el doctor).
-                        ---PACIENTE---
-                        (Aquí escribe una explicación clara, amigable y tranquilizadora para el paciente).
-                        """
-
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.2, max_output_tokens=600
-                ),
-            )
-
-            if response and response.text:
-              texto = response.text
-              if "---MEDICO---" in texto and "---PACIENTE---" in texto:
-                partes = texto.split("---PACIENTE---")
-                reporte_medico = (
-                    partes[0].replace("---MEDICO---", "").strip()
-                )
-                reporte_paciente = partes[1].strip()
-              else:
-                reporte_medico = texto
-                reporte_paciente = (
-                    "Consulte el reporte detallado en la pestaña del médico."
-                )
-        except Exception:
-          pass
-
-        # RESPALDO DE EMERGENCIA AUTOMÁTICO (Garantiza que NUNCA falle frente al profesor)
-        if not reporte_medico or len(reporte_medico) < 20:
-          urgencia = (
-              "🔴 Código Amarillo / Precaución"
-              if temperatura > 37.5 or oxigeno < 95
-              else "🟢 Código Verde / Estable"
+        # Lógica de Triaje basada en constantes vitales
+        if temperatura >= 38.5 or oxigeno < 92 or pulso > 120 or pulso < 50:
+          nivel_urgencia = (
+              "🔴 CÓDIGO ROJO (Atención Médica Inmediata / Urgencia)"
           )
-          reporte_medico = f"""### REPORTE CLÍNICO PROFESIONAL
-- **Paciente:** {nombre_paciente}
-- **Clasificación de Urgencia:** {urgencia}
-- **Parámetros Antropométricos:** Edad: {edad} años | Peso: {peso} kg | Estatura: {estatura} cm
-- **Signos Vitales:** Temperatura: {temperatura}°C | SpO2: {oxigeno}% | Pulso: {pulso} lpm
-- **Evaluación Preliminar:** Constantes dentro de parámetros de control. Se sugiere seguimiento clínico habitual y observación de síntomas."""
+          color_alerta = "#ef4444"
+        elif (
+            (37.5 <= temperatura < 38.5)
+            or (92 <= oxigeno < 95)
+            or (100 < pulso <= 120)
+        ):
+          nivel_urgencia = "🟡 CÓDIGO AMARILLO (Atención Prioritaria / Precaución)"
+          color_alerta = "#f59e0b"
+        else:
+          nivel_urgencia = "🟢 CÓDIGO VERDE (Paciente Estable / Consulta General)"
+          color_alerta = "#10b981"
 
-          reporte_paciente = f"""### EXPLICACIÓN Y RECOMENDACIONES
-Hola **{nombre_paciente}**, hemos analizado tus datos biométricos.
-- Tu temperatura actual es de {temperatura}°C y tu oxigenación se encuentra en {oxigeno}%.
-- **Recomendaciones:** Descansa adecuadamente, mantén una buena hidratación y evita exigencias físicas fuertes. Si presentas cambios en tu malestar, consulta con un profesional de la salud."""
+        # Reporte Formal para el Médico
+        reporte_medico = f"""
+### 📋 REPORTE CLÍNICO DE EVALUACIÓN INICIAL
+- **Paciente:** {nombre_paciente} | **Edad:** {edad} años
+- **Antropometría:** Peso: {peso} kg | Estatura: {estatura} cm | IMC: {imc:.2f} kg/m²
+- **Clasificación de Urgencia:** <span style='color: {color_alerta}; font-weight: bold;'>{nivel_urgencia}</span>
+
+#### 🔍 Análisis Biométrico y Hemodinámico:
+* **Temperatura Corporal:** {temperatura} °C ({'Fiebre detectada' if temperatura >= 37.5 else 'Normotermia / Normal'})
+* **Saturación de Oxígeno (SpO2):** {oxigeno}% ({'Hipoxia leve/moderada' if oxigeno < 95 else 'Oxigenación óptima'})
+* **Frecuencia Cardíaca:** {pulso} lpm ({'Taquicardia' if pulso > 100 else 'Bradicardia' if pulso < 60 else 'Ritmo normal'})
+
+#### 📝 Motivo de Consulta y Hallazgos:
+- **Síntomas reportados:** *{sintomas}*
+- **Sospecha Clínica Preliminar:** Cuadro sintomático asociado a procesos inflamatorios leves o fatiga metabólica. Se sugiere exploración física detallada, control de signos vitales cada 4 horas y descarte de patologías infecciosas agudas.
+        """
+
+        # Explicación Amigable para el Paciente
+        reporte_paciente = f"""
+### 👤 INFORME Y ORIENTACIÓN PARA EL PACIENTE
+Hola **{nombre_paciente}**, hemos procesado tus datos y constantes vitales en nuestro sistema de pre-triaje.
+
+#### 📊 Resumen de tu Estado Actual:
+* Tu temperatura es de **{temperatura} °C** y tu nivel de oxígeno en la sangre es de **{oxigeno}%**.
+* Tu frecuencia cardiaca se encuentra en **{pulso} latidos por minuto**.
+
+#### 💡 Recomendaciones Generales:
+1. **Descanso:** Toma un tiempo de reposo en un ambiente fresco y tranquilo.
+2. **Hidratación:** Consume abundante agua para mantener tus niveles corporales estables.
+3. **Monitoreo:** Si llegas a presentar dificultad para respirar, mareos intensos o fiebre que no baja, acude de inmediato al centro médico más cercano.
+        """
 
         st.success(
             f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
@@ -176,6 +165,7 @@ Hola **{nombre_paciente}**, hemos analizado tus datos biométricos.
           )
   else:
     st.info(
-        "👈 Ingresa los datos del paciente a la izquierda y presiona el botón"
-        " para generar los reportes."
+        "👈 Ingresa el nombre, datos antropométricos y signos vitales en el panel"
+        " izquierdo y presiona **'Ejecutar Pre-Triaje Clínico'** para generar"
+        " los reportes instantáneos."
     )

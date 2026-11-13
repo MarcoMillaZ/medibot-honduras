@@ -121,9 +121,9 @@ with col_der:
                         - Síntomas: {sintomas}
                         """
 
-            # Usamos gemini-1.5-flash para garantizar estabilidad total, cero saturación y velocidad instantánea (<4s)
+            # Usamos gemini-2.5-flash que es el modelo estándar optimizado y compatible con google-genai
             response = client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents=prompt_usuario,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,

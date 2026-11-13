@@ -94,77 +94,87 @@ with col_der:
     if not nombre_paciente.strip():
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
-      with st.spinner("Analizando y generando reportes instantáneos..."):
+      with st.spinner("Procesando pre-triaje de alta velocidad..."):
         try:
-          # Conexión usando secretos de Streamlit
-          client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
-          # Instrucción ultra optimizada para una sola llamada rápida que se divide sola
-          system_instruction = (
-              "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico con IA. "
-              "Debes responder estrictamente dividiendo tu respuesta en dos bloques separados por esta etiqueta exacta: [SEPARADOR_REPORTES].\n"
-              "Primer bloque: Un reporte clínico formal, detallado y técnico para el médico (Nivel de Urgencia, análisis biométrico, sospecha clínica).\n"
-              "Segundo bloque: Una explicación clara, amigable y tranquilizadora para el paciente sobre su estado y recomendaciones generales.\n"
-              "Sé directo, profesional y conciso para garantizar máxima velocidad."
-          )
-
-          prompt_usuario = f"""
-                    Paciente: {nombre_paciente}
-                    - Edad: {edad} años | Peso: {peso} kg | Estatura: {estatura} cm
-                    - Temperatura: {temperatura} °C | SpO2: {oxigeno}% | Pulso: {pulso} lpm
-                    - Motivo de consulta / Síntomas: {sintomas}
-                    """
-
-          # Una sola llamada optimizada al modelo más rápido con tokens amplios
-          response = client.models.generate_content(
-              model="gemini-3.8-flash",
-              contents=prompt_usuario,
-              config=types.GenerateContentConfig(
-                  system_instruction=system_instruction,
-                  temperature=0.1,
-                  max_output_tokens=1000,
-              ),
-          )
-
-          texto_total = response.text
-
-          # Separamos la respuesta de la IA en los dos reportes automáticamente en Python
-          if "[SEPARADOR_REPORTES]" in texto_total:
-            reporte_medico, reporte_paciente = texto_total.split(
-                "[SEPARADOR_REPORTES]", 1
+          # Validación de seguridad de la API Key
+          if (
+              "GEMINI_API_KEY" not in st.secrets
+              or not st.secrets["GEMINI_API_KEY"]
+          ):
+            st.error(
+                "❌ Error crítico: La API Key no está configurada en los"
+                " Secrets de Streamlit Cloud."
             )
           else:
-            reporte_medico = texto_total
-            reporte_paciente = (
-                "Consulte la pestaña del médico para más detalles."
+            client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+            # Instrucción sumamente directa y rápida para evitar demoras
+            system_instruction = (
+                "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico ultrarrápido. "
+                "Genera una respuesta directa dividida exactamente en dos partes usando los siguientes encabezados:\n\n"
+                "### MÉDICO\n"
+                "- Urgencia: (Verde/Amarillo/Rojo)\n- Evaluación clínica técnica y breve.\n\n"
+                "### PACIENTE\n"
+                "- Estado general y recomendaciones claras y tranquilizadoras en lenguaje sencillo."
             )
 
-          st.success(
-              f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
-          )
+            prompt_usuario = f"""
+                        Paciente: {nombre_paciente}
+                        - Edad: {edad} años | Peso: {peso} kg | Estatura: {estatura} cm
+                        - Temperatura: {temperatura} °C | SpO2: {oxigeno}% | Pulso: {pulso} lpm
+                        - Síntomas: {sintomas}
+                        """
 
-          tab_medico, tab_paciente = st.tabs(
-              ["📋 Reporte para el Médico", "👤 Explicación para el Paciente"]
-          )
-
-          with tab_medico:
-            st.markdown(
-                "<div style='background-color: #0f141f; padding: 20px; border-radius:"
-                f" 10px; border: 1px solid #1e293b;'>{reporte_medico}</div>",
-                unsafe_allow_html=True,
+            # Llamada relámpago con modelo optimizado y tokens controlados para responder en < 5s
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt_usuario,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.1,
+                    max_output_tokens=450,
+                ),
             )
 
-          with tab_paciente:
-            st.markdown(
-                "<div style='background-color: #0f141f; padding: 20px; border-radius:"
-                f" 10px; border: 1px solid #1e293b;'>{reporte_paciente}</div>",
-                unsafe_allow_html=True,
+            texto_total = response.text
+
+            # Separador seguro en Python por si incluye los encabezados
+            if "### PACIENTE" in texto_total:
+              partes = texto_total.split("### PACIENTE")
+              reporte_medico = partes[0].replace("### MÉDICO", "").strip()
+              reporte_paciente = partes[1].strip()
+            else:
+              reporte_medico = texto_total
+              reporte_paciente = "Consulte el reporte clínico superior."
+
+            st.success(
+                f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
             )
+
+            tab_medico, tab_paciente = st.tabs(
+                ["📋 Reporte para el Médico", "👤 Explicación para el Paciente"]
+            )
+
+            with tab_medico:
+              st.markdown(
+                  "<div style='background-color: #0f141f; padding: 20px;"
+                  f" border-radius: 10px; border: 1px solid"
+                  f" #1e293b;'>{reporte_medico}</div>",
+                  unsafe_allow_html=True,
+              )
+
+            with tab_paciente:
+              st.markdown(
+                  "<div style='background-color: #0f141f; padding: 20px;"
+                  f" border-radius: 10px; border: 1px solid"
+                  f" #1e293b;'>{reporte_paciente}</div>",
+                  unsafe_allow_html=True,
+              )
 
         except Exception as e:
           st.error(
-              "⚠️ Error de conexión con el motor de IA. Verifica tu API Key en"
-              f" los Secrets. Detalle: {e}"
+              "⚠️ Error al conectar con la API de Google. Verifica que tu"
+              f" clave en los Secrets sea correcta. Detalle del error: {e}"
           )
   else:
     st.info(

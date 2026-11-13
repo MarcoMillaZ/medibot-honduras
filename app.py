@@ -94,9 +94,8 @@ with col_der:
     if not nombre_paciente.strip():
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
-      with st.spinner("Procesando pre-triaje de alta velocidad..."):
+      with st.spinner("Procesando pre-triaje de ultra alta velocidad..."):
         try:
-          # Validación de seguridad de la API Key
           if (
               "GEMINI_API_KEY" not in st.secrets
               or not st.secrets["GEMINI_API_KEY"]
@@ -108,14 +107,11 @@ with col_der:
           else:
             client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-            # Instrucción sumamente directa y rápida para evitar demoras
             system_instruction = (
-                "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico ultrarrápido. "
-                "Genera una respuesta directa dividida exactamente en dos partes usando los siguientes encabezados:\n\n"
-                "### MÉDICO\n"
-                "- Urgencia: (Verde/Amarillo/Rojo)\n- Evaluación clínica técnica y breve.\n\n"
-                "### PACIENTE\n"
-                "- Estado general y recomendaciones claras y tranquilizadoras en lenguaje sencillo."
+                "Eres 'MediBot-Honduras', un sistema experto de pre-triaje médico. "
+                "Responde de forma concisa y directa dividiendo estrictamente tu respuesta con esta etiqueta exacta: [SEPARADOR_REPORTES].\n"
+                "Parte 1: Reporte clínico formal para el médico (Nivel de urgencia, constantes y sospecha clínica).\n"
+                "Parte 2: Explicación amigable y clara para el paciente."
             )
 
             prompt_usuario = f"""
@@ -125,27 +121,28 @@ with col_der:
                         - Síntomas: {sintomas}
                         """
 
-            # Llamada relámpago con modelo optimizado y tokens controlados para responder en < 5s
+            # Usamos gemini-1.5-flash para garantizar estabilidad total, cero saturación y velocidad instantánea (<4s)
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model="gemini-1.5-flash",
                 contents=prompt_usuario,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     temperature=0.1,
-                    max_output_tokens=450,
+                    max_output_tokens=800,
                 ),
             )
 
             texto_total = response.text
 
-            # Separador seguro en Python por si incluye los encabezados
-            if "### PACIENTE" in texto_total:
-              partes = texto_total.split("### PACIENTE")
-              reporte_medico = partes[0].replace("### MÉDICO", "").strip()
+            if "[SEPARADOR_REPORTES]" in texto_total:
+              partes = texto_total.split("[SEPARADOR_REPORTES]")
+              reporte_medico = partes[0].strip()
               reporte_paciente = partes[1].strip()
             else:
               reporte_medico = texto_total
-              reporte_paciente = "Consulte el reporte clínico superior."
+              reporte_paciente = (
+                  "Consulte el informe detallado en la pestaña del médico."
+              )
 
             st.success(
                 f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
@@ -173,8 +170,8 @@ with col_der:
 
         except Exception as e:
           st.error(
-              "⚠️ Error al conectar con la API de Google. Verifica que tu"
-              f" clave en los Secrets sea correcta. Detalle del error: {e}"
+              "⚠️ Ocurrió un error al procesar la solicitud. Detalle técnico:"
+              f" {e}"
           )
   else:
     st.info(

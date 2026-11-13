@@ -95,9 +95,7 @@ with col_der:
     if not nombre_paciente.strip():
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
-      with st.spinner(
-          "Procesando pre-triaje y conectando con el motor clínico..."
-      ):
+      with st.spinner("Procesando pre-triaje clínico..."):
         try:
           if (
               "GEMINI_API_KEY" not in st.secrets
@@ -124,24 +122,16 @@ with col_der:
                         - Síntomas: {sintomas}
                         """
 
-            # Sistema de reintento automático para evitar errores de alta demanda (503)
-            response = None
-            for intento in range(3):
-              try:
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=prompt_usuario,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.1,
-                        max_output_tokens=800,
-                    ),
-                )
-                break
-              except Exception:
-                if intento == 2:
-                  raise
-                sleep(1)
+            # Usamos el modelo oficial gemini-3.8-flash exigido por el SDK nuevo
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt_usuario,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.1,
+                    max_output_tokens=700,
+                ),
+            )
 
             texto_total = response.text
 
@@ -180,10 +170,18 @@ with col_der:
               )
 
         except Exception as e:
-          st.error(
-              "⚠️ Ocurrió un error al procesar la solicitud. Detalle técnico:"
-              f" {e}"
-          )
+          error_str = str(e)
+          if "503" in error_str or "UNAVAILABLE" in error_str:
+            st.warning(
+                "⚠️ Los servidores de Google están experimentando alta demanda"
+                " temporalmente. Por favor, espera 5 segundos y vuelve a dar"
+                " clic en el botón."
+            )
+          else:
+            st.error(
+                "⚠️ Ocurrió un error al procesar la solicitud. Detalle técnico:"
+                f" {e}"
+            )
   else:
     st.info(
         "👈 Ingresa el nombre, datos antropométricos y signos vitales en el panel"

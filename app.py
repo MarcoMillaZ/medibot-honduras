@@ -1,3 +1,4 @@
+from time import sleep
 from google import genai
 from google.genai import types
 import streamlit as st
@@ -94,7 +95,9 @@ with col_der:
     if not nombre_paciente.strip():
       st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
     else:
-      with st.spinner("Procesando pre-triaje de ultra alta velocidad..."):
+      with st.spinner(
+          "Procesando pre-triaje y conectando con el motor clínico..."
+      ):
         try:
           if (
               "GEMINI_API_KEY" not in st.secrets
@@ -121,16 +124,24 @@ with col_der:
                         - Síntomas: {sintomas}
                         """
 
-            # Usamos gemini-2.5-flash que es el modelo estándar optimizado y compatible con google-genai
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt_usuario,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.1,
-                    max_output_tokens=800,
-                ),
-            )
+            # Sistema de reintento automático para evitar errores de alta demanda (503)
+            response = None
+            for intento in range(3):
+              try:
+                response = client.models.generate_content(
+                    model="gemini-3.8-flash",
+                    contents=prompt_usuario,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.1,
+                        max_output_tokens=800,
+                    ),
+                )
+                break
+              except Exception:
+                if intento == 2:
+                  raise
+                sleep(1)
 
             texto_total = response.text
 

@@ -1,4 +1,6 @@
+import os
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Configuración inicial de la página
 st.set_page_config(
@@ -30,86 +32,94 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-col_izq, col_der = st.columns([1, 1.8], gap="large")
+tab_app, tab_robot = st.tabs(
+    ["🩺 Prediagnóstico IA", "🤖 Prototipo Robot 3D"]
+)  #
 
-with col_izq:
-  st.markdown("### 🧬 Datos y Constantes")
-  with st.form("formulario_triaje"):
-    nombre_paciente = st.text_input(
-        "Nombre Completo del Paciente", "Ej. Juan Pérez"
-    )
+with tab_app:  #
+  col_izq, col_der = st.columns([1, 1.8], gap="large")
 
-    col_sub1, col_sub2, col_sub3 = st.columns(3)
-    with col_sub1:
-      edad = st.number_input("Edad", min_value=1, max_value=120, value=16)
-    with col_sub2:
-      peso = st.number_input(
-          "Peso (kg)", min_value=2.0, max_value=200.0, value=60.0, step=0.5
-      )
-    with col_sub3:
-      estatura = st.number_input(
-          "Estatura (cm)", min_value=40, max_value=230, value=170
+  with col_izq:
+    st.markdown("### 🧬 Datos y Constantes")
+    with st.form("formulario_triaje"):
+      nombre_paciente = st.text_input(
+          "Nombre Completo del Paciente", "Ej. Juan Pérez"
       )
 
-    st.markdown("---")
-    st.markdown("#### ⚡ Signos Vitales")
-    temperatura = st.number_input(
-        "Temperatura Corporal (°C)",
-        min_value=34.0,
-        max_value=43.0,
-        value=37.0,
-        step=0.1,
-    )
-    oxigeno = st.slider(
-        "Saturación de Oxígeno (SpO2 %)", min_value=50, max_value=100, value=98
-    )
-    pulso = st.number_input(
-        "Frecuencia Cardíaca (Pulso lpm)",
-        min_value=30,
-        max_value=220,
-        value=75,
-    )
+      col_sub1, col_sub2, col_sub3 = st.columns(3)
+      with col_sub1:
+        edad = st.number_input("Edad", min_value=1, max_value=120, value=16)
+      with col_sub2:
+        peso = st.number_input(
+            "Peso (kg)", min_value=2.0, max_value=200.0, value=60.0, step=0.5
+        )
+      with col_sub3:
+        estatura = st.number_input(
+            "Estatura (cm)", min_value=40, max_value=230, value=170
+        )
 
-    sintomas = st.text_area(
-        "Descripción Clínica de Síntomas",
-        "Dolor de cabeza leve, fatiga y malestar general.",
-        height=100,
-    )
+      st.markdown("---")
+      st.markdown("#### ⚡ Signos Vitales")
+      temperatura = st.number_input(
+          "Temperatura Corporal (°C)",
+          min_value=34.0,
+          max_value=43.0,
+          value=37.0,
+          step=0.1,
+      )
+      oxigeno = st.slider(
+          "Saturación de Oxígeno (SpO2 %)", min_value=50, max_value=100, value=98
+      )
+      pulso = st.number_input(
+          "Frecuencia Cardíaca (Pulso lpm)",
+          min_value=30,
+          max_value=220,
+          value=75,
+      )
 
-    enviar = st.form_submit_button(
-        "⚡ EJECUTAR PRE-TRIAJE CLÍNICO", use_container_width=True
-    )
+      sintomas = st.text_area(
+          "Descripción Clínica de Síntomas",
+          "Dolor de cabeza leve, fatiga y malestar general.",
+          height=100,
+      )
 
-with col_der:
-  st.markdown("### 📊 Consola de Diagnóstico e Informes")
+      enviar = st.form_submit_button(
+          "⚡ EJECUTAR PRE-TRIAJE CLÍNICO", use_container_width=True
+      )
 
-  if enviar:
-    if not nombre_paciente.strip():
-      st.error("⚠️ Por favor, ingresa el nombre del paciente antes de continuar.")
-    else:
-      with st.spinner("Procesando biométricos en tiempo real..."):
-        # Cálculo analítico clínico instantáneo (Simulación de Motor Experto)
-        imc = peso / ((estatura / 100) ** 2)
+  with col_der:
+    st.markdown("### 📊 Consola de Diagnóstico e Informes")
 
-        # Lógica de Triaje basada en constantes vitales
-        if temperatura >= 38.5 or oxigeno < 92 or pulso > 120 or pulso < 50:
-          nivel_urgencia = (
-              "🔴 CÓDIGO ROJO (Atención Médica Inmediata / Urgencia)"
-          )
-          color_alerta = "#ef4444"
-        elif (
-            (37.5 <= temperatura < 38.5)
-            or (92 <= oxigeno < 95)
-            or (100 < pulso <= 120)
-        ):
-          nivel_urgencia = "🟡 CÓDIGO AMARILLO (Atención Prioritaria / Precaución)"
-          color_alerta = "#f59e0b"
-        else:
-          nivel_urgencia = "🟢 CÓDIGO VERDE (Paciente Estable / Consulta General)"
-          color_alerta = "#10b981"
+    if enviar:
+      if not nombre_paciente.strip():
+        st.error(
+            "⚠️ Por favor, ingresa el nombre del paciente antes de continuar."
+        )
+      else:
+        with st.spinner("Procesando biométricos en tiempo real..."):
+          imc = peso / ((estatura / 100) ** 2)
 
-        # Reporte Formal para el Médico
-        reporte_medico = f"""
+          if temperatura >= 38.5 or oxigeno < 92 or pulso > 120 or pulso < 50:
+            nivel_urgencia = (
+                "🔴 CÓDIGO ROJO (Atención Médica Inmediata / Urgencia)"
+            )
+            color_alerta = "#ef4444"
+          elif (
+              (37.5 <= temperatura < 38.5)
+              or (92 <= oxigeno < 95)
+              or (100 < pulso <= 120)
+          ):
+            nivel_urgencia = (
+                "🟡 CÓDIGO AMARILLO (Atención Prioritaria / Precaución)"
+            )
+            color_alerta = "#f59e0b"
+          else:
+            nivel_urgencia = (
+                "🟢 CÓDIGO VERDE (Paciente Estable / Consulta General)"
+            )
+            color_alerta = "#10b981"
+
+          reporte_medico = f"""
 ### 📋 REPORTE CLÍNICO DE EVALUACIÓN INICIAL
 - **Paciente:** {nombre_paciente} | **Edad:** {edad} años
 - **Antropometría:** Peso: {peso} kg | Estatura: {estatura} cm | IMC: {imc:.2f} kg/m²
@@ -123,10 +133,9 @@ with col_der:
 #### 📝 Motivo de Consulta y Hallazgos:
 - **Síntomas reportados:** *{sintomas}*
 - **Sospecha Clínica Preliminar:** Cuadro sintomático asociado a procesos inflamatorios leves o fatiga metabólica. Se sugiere exploración física detallada, control de signos vitales cada 4 horas y descarte de patologías infecciosas agudas.
-        """
+                    """
 
-        # Explicación Amigable para el Paciente
-        reporte_paciente = f"""
+          reporte_paciente = f"""
 ### 👤 INFORME Y ORIENTACIÓN PARA EL PACIENTE
 Hola **{nombre_paciente}**, hemos procesado tus datos y constantes vitales en nuestro sistema de pre-triaje.
 
@@ -138,34 +147,48 @@ Hola **{nombre_paciente}**, hemos procesado tus datos y constantes vitales en nu
 1. **Descanso:** Toma un tiempo de reposo en un ambiente fresco y tranquilo.
 2. **Hidratación:** Consume abundante agua para mantener tus niveles corporales estables.
 3. **Monitoreo:** Si llegas a presentar dificultad para respirar, mareos intensos o fiebre que no baja, acude de inmediato al centro médico más cercano.
-        """
+                    """
 
-        st.success(
-            f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
-        )
-
-        tab_medico, tab_paciente = st.tabs(
-            ["📋 Reporte para el Médico", "👤 Explicación para el Paciente"]
-        )
-
-        with tab_medico:
-          st.markdown(
-              "<div style='background-color: #0f141f; padding: 20px;"
-              f" border-radius: 10px; border: 1px solid"
-              f" #1e293b;'>{reporte_medico}</div>",
-              unsafe_allow_html=True,
+          st.success(
+              f"✅ Pre-triaje completado con éxito para: **{nombre_paciente}**"
           )
 
-        with tab_paciente:
-          st.markdown(
-              "<div style='background-color: #0f141f; padding: 20px;"
-              f" border-radius: 10px; border: 1px solid"
-              f" #1e293b;'>{reporte_paciente}</div>",
-              unsafe_allow_html=True,
-          )
+          tab_medico, tab_paciente = st.tabs([
+              "📋 Reporte para el Médico",
+              "👤 Explicación para el Paciente",
+          ])
+
+          with tab_medico:
+            st.markdown(
+                "<div style='background-color: #0f141f; padding: 20px;"
+                f" border-radius: 10px; border: 1px solid"
+                f" #1e293b;'>{reporte_medico}</div>",
+                unsafe_allow_html=True,
+            )
+
+          with tab_paciente:
+            st.markdown(
+                "<div style='background-color: #0f141f; padding: 20px;"
+                f" border-radius: 10px; border: 1px solid"
+                f" #1e293b;'>{reporte_paciente}</div>",
+                unsafe_allow_html=True,
+            )
+    else:
+      st.info(
+          "👈 Ingresa el nombre, datos antropométricos y signos vitales en el"
+          " panel izquierdo y presiona **'Ejecutar Pre-Triaje Clínico'** para"
+          " generar los reportes instantáneos."
+      )
+
+with tab_robot:  #
+  st.subheader("Vista interactiva de Medibot")  #[cite: 12]
+  if os.path.exists("medibot-3d.html"):  #[cite: 12]
+    with open("medibot-3d.html", "r", encoding="utf-8") as f:  #[cite: 12]
+      html_robot = f.read()  #[cite: 12]
+    components.html(html_robot, height=680, scrolling=False)  #[cite: 12]
   else:
-    st.info(
-        "👈 Ingresa el nombre, datos antropométricos y signos vitales en el panel"
-        " izquierdo y presiona **'Ejecutar Pre-Triaje Clínico'** para generar"
-        " los reportes instantáneos."
+    st.warning(
+        "Aún no encuentro el archivo `medibot-3d.html` en la misma carpeta que"
+        " `app.py`. Súbelo a GitHub con ese nombre exacto para ver el"
+        " prototipo aquí."
     )

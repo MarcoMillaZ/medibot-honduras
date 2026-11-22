@@ -19,6 +19,7 @@
       padding: 0;
       width: 100%;
       height: 100%;
+      min-height: 620px;
       overflow: hidden;
       font-family: 'Inter', sans-serif;
       background: radial-gradient(circle at 50% 35%, #f5f9ff 0%, #e2effb 65%, #cde3f6 100%);
@@ -30,6 +31,7 @@
       inset: 0;
       width: 100%;
       height: 100%;
+      min-height: 620px;
       cursor: grab;
       touch-action: none;
     }
@@ -253,6 +255,21 @@
   </footer>
 
   <script>
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(x, y, w, h, radius);
+      } else {
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+    }
+
     // --- 1. LAS 15 CARACTERÍSTICAS DEL ROBOT ---
     const ROBOT_FEATURES = [
       { id: 1, title: "Medir la temperatura", detail: "Sensor térmico sin contacto integrado en el módulo del brazo.", tag: "Biometría" },
@@ -311,19 +328,27 @@
 
     // --- 3. ESCENA THREE.JS ---
     const container = document.getElementById("scene-container");
+
+    function getViewportSize() {
+      const w = container.clientWidth || document.documentElement.clientWidth || window.innerWidth || 960;
+      const h = container.clientHeight || document.documentElement.clientHeight || window.innerHeight || 680;
+      return { w: Math.max(w, 300), h: Math.max(h, 400) };
+    }
+
+    const initialSize = getViewportSize();
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog("#e2effb", 9, 22);
 
     const camera = new THREE.PerspectiveCamera(
       38,
-      container.clientWidth / Math.max(container.clientHeight, 1),
+      initialSize.w / initialSize.h,
       0.1,
       100
     );
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(initialSize.w, initialSize.h);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -421,8 +446,7 @@
 
       ctx.strokeStyle = currentExpression === "reminder" ? "#f59e0b" : "#38bdf8";
       ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.roundRect(14, 14, w - 28, h - 28, 44);
+      drawRoundedRect(ctx, 14, 14, w - 28, h - 28, 44);
       ctx.stroke();
 
       ctx.fillStyle = "#0f172a";
@@ -568,8 +592,7 @@
 
       items.forEach((it) => {
         ctx.fillStyle = "#1e293b";
-        ctx.beginPath();
-        ctx.roundRect(it.x, it.y, 220, 92, 16);
+        drawRoundedRect(ctx, it.x, it.y, 220, 92, 16);
         ctx.fill();
 
         ctx.fillStyle = "#94a3b8";
@@ -582,8 +605,7 @@
       });
 
       ctx.fillStyle = "#172554";
-      ctx.beginPath();
-      ctx.roundRect(24, 312, w - 48, 172, 18);
+      drawRoundedRect(ctx, 24, 312, w - 48, 172, 18);
       ctx.fill();
 
       ctx.fillStyle = "#93c5fd";
@@ -598,8 +620,7 @@
       chips.forEach((label, i) => {
         const bx = 42 + i * 228;
         ctx.fillStyle = "#0ea5e9";
-        ctx.beginPath();
-        ctx.roundRect(bx, 412, 212, 52, 14);
+        drawRoundedRect(ctx, bx, 412, 212, 52, 14);
         ctx.fill();
 
         ctx.fillStyle = "#ffffff";
@@ -778,7 +799,7 @@
     const pillColors = ["#f43f5e", "#f59e0b", "#10b981"];
     pillColors.forEach((col, idx) => {
       const cap = new THREE.Mesh(
-        new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.025, 0.04, 6, 12) : new THREE.SphereGeometry(0.032, 14, 14),
+        typeof THREE.CapsuleGeometry === "function" ? new THREE.CapsuleGeometry(0.025, 0.04, 6, 12) : new THREE.SphereGeometry(0.032, 14, 14),
         new THREE.MeshStandardMaterial({ color: col, roughness: 0.3 })
       );
       cap.position.set(-0.12 + idx * 0.12, 0.025, 0.02);
@@ -866,7 +887,6 @@
       wheels: { pos: [1.35, 0.65, 2.15], target: [0, 0.22, 0.1] }
     };
 
-    let activeCamPreset = "face";
     let targetCamPos = new THREE.Vector3(...CAM_PRESETS.face.pos);
     let targetLookAt = new THREE.Vector3(...CAM_PRESETS.face.target);
     let isTransitioningCam = false;
@@ -877,7 +897,6 @@
 
     function setCameraPreset(key) {
       const preset = CAM_PRESETS[key] || CAM_PRESETS.face;
-      activeCamPreset = key;
       targetCamPos.set(...preset.pos);
       targetLookAt.set(...preset.target);
       isTransitioningCam = true;
@@ -1000,40 +1019,52 @@
     });
 
     function robotSpeak(text, onDone = null) {
-      if (!("speechSynthesis" in window)) {
-        setRobotState("speaking", true);
-        showToast(text, "bg-teal-500");
-        setTimeout(() => {
+      try {
+        if (!("speechSynthesis" in window)) {
+          setRobotState("speaking", true);
+          showToast(text, "bg-teal-500");
+          setTimeout(() => {
+            setRobotState("cute", false);
+            if (typeof onDone === "function") onDone();
+          }, 2500);
+          return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "es-ES";
+        utterance.rate = 1.02;
+        utterance.pitch = 1.12;
+
+        const voices = window.speechSynthesis.getVoices() || [];
+        const spanishVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("es"));
+        if (spanishVoice) utterance.voice = spanishVoice;
+
+        let finished = false;
+        const finishSpeak = () => {
+          if (finished) return;
+          finished = true;
           setRobotState("cute", false);
           if (typeof onDone === "function") onDone();
-        }, 2500);
-        return;
-      }
+        };
 
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "es-ES";
-      utterance.rate = 1.02;
-      utterance.pitch = 1.12;
+        utterance.onstart = () => {
+          setRobotState("speaking", true);
+          showToast(text, "bg-teal-500");
+        };
+        utterance.onend = finishSpeak;
+        utterance.onerror = finishSpeak;
 
-      const voices = window.speechSynthesis.getVoices();
-      const spanishVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("es"));
-      if (spanishVoice) utterance.voice = spanishVoice;
-
-      utterance.onstart = () => {
-        setRobotState("speaking", true);
         showToast(text, "bg-teal-500");
-      };
+        setRobotState("speaking", true);
+        window.speechSynthesis.speak(utterance);
 
-      const finishSpeak = () => {
+        // Respaldo por si speechSynthesis queda colgado sin disparar onend
+        setTimeout(finishSpeak, Math.max(3000, text.length * 75));
+      } catch (e) {
         setRobotState("cute", false);
         if (typeof onDone === "function") onDone();
-      };
-
-      utterance.onend = finishSpeak;
-      utterance.onerror = finishSpeak;
-
-      window.speechSynthesis.speak(utterance);
+      }
     }
 
     function responderAFrase(frase) {
@@ -1068,49 +1099,50 @@
         try { recognition.stop(); } catch (e) {}
       }
 
-      recognition = new SpeechRecognitionAPI();
-      recognition.lang = "es-ES";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        isListeningMic = true;
-        setRobotState("listening", true);
-        showToast("Micrófono activo: habla ahora con Medibot...", "bg-sky-500");
-      };
-
-      recognition.onresult = (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript || "";
-        isListeningMic = false;
-        if (transcript) {
-          responderAFrase(transcript);
-        } else {
-          setRobotState("cute", false);
-        }
-      };
-
-      recognition.onerror = (event) => {
-        isListeningMic = false;
-        setRobotState("cute", false);
-        if (event.error === "not-allowed") {
-          showToast("Permite el acceso al micrófono en el navegador para que pueda escucharte.", "bg-rose-500");
-        } else {
-          showToast("No logré captar audio. Presiona 'Probar Voz (Demo)' para reintentar.", "bg-amber-500");
-        }
-      };
-
-      recognition.onend = () => {
-        isListeningMic = false;
-        if (currentExpression === "listening") {
-          setRobotState("cute", false);
-        }
-      };
-
       try {
+        recognition = new SpeechRecognitionAPI();
+        recognition.lang = "es-ES";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          isListeningMic = true;
+          setRobotState("listening", true);
+          showToast("Micrófono activo: habla ahora con Medibot...", "bg-sky-500");
+        };
+
+        recognition.onresult = (event) => {
+          const transcript = event.results?.[0]?.[0]?.transcript || "";
+          isListeningMic = false;
+          if (transcript) {
+            responderAFrase(transcript);
+          } else {
+            setRobotState("cute", false);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          isListeningMic = false;
+          setRobotState("cute", false);
+          if (event.error === "not-allowed") {
+            showToast("Permite el acceso al micrófono en el navegador para que pueda escucharte.", "bg-rose-500");
+          } else {
+            showToast("No logré captar audio. Presiona 'Probar Voz (Demo)' para reintentar.", "bg-amber-500");
+          }
+        };
+
+        recognition.onend = () => {
+          isListeningMic = false;
+          if (currentExpression === "listening") {
+            setRobotState("cute", false);
+          }
+        };
+
         recognition.start();
       } catch (e) {
         isListeningMic = false;
         setRobotState("cute", false);
+        showToast("No se pudo iniciar el micrófono en este marco.", "bg-amber-500");
       }
     }
 
@@ -1141,6 +1173,8 @@
       if (dist > 6) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -1151,31 +1185,42 @@
       }
     });
 
-    // --- 9. BUCLE DE ANIMACIÓN ---
+    // --- 9. TAMAÑO DE PANTALLA Y BUCLE DE ANIMACIÓN ---
+    function syncViewport() {
+      const { w, h } = getViewportSize();
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    window.addEventListener("resize", syncViewport);
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => {
+        syncViewport();
+      });
+      observer.observe(container);
+    }
+
     const clock = new THREE.Clock();
 
     function animate() {
       requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Respiración suave del cuerpo y cabeza
       bodyGroup.position.y = 1.05 + Math.sin(elapsed * 2.1) * 0.015;
       headGroup.position.y = 2.02 + Math.sin(elapsed * 2.1 + 0.4) * 0.018;
       headGroup.rotation.y = Math.sin(elapsed * 0.9) * 0.05;
 
-      // Movimiento suave de brazos
       leftArm.rotation.z = 0.08 + Math.sin(elapsed * 1.8) * 0.04;
       rightArm.rotation.z = -0.08 - Math.sin(elapsed * 1.8) * 0.04;
 
-      // Deslizar bandeja de pastillas
       const targetDrawer = drawerOpen ? 1 : 0;
       drawerProgress += (targetDrawer - drawerProgress) * 0.12;
       pillTray.position.z = drawerProgress * 0.16;
 
-      // Redibujar carita animada
       drawFace(elapsed);
 
-      // Transición suave de cámara
       if (isTransitioningCam) {
         camera.position.lerp(targetCamPos, 0.08);
         controls.target.lerp(targetLookAt, 0.08);
@@ -1188,14 +1233,7 @@
       renderer.render(scene, camera);
     }
 
-    window.addEventListener("resize", () => {
-      const w = container.clientWidth;
-      const h = Math.max(container.clientHeight, 1);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    });
-
+    syncViewport();
     animate();
   </script>
 </body>

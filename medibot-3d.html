@@ -281,4 +281,922 @@
         <div class="min-w-0 flex-1">
           <div class="flex items-center justify-between gap-2">
             <span class="font-semibold text-slate-800">${feat.title}</span>
-            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-2
+            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200/60 shrink-0">${feat.tag}</span>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-snug mt-0.5">${feat.detail}</p>
+        </div>
+      `;
+      featuresListEl.appendChild(li);
+    });
+
+    // --- 2. NOTIFICACIONES ---
+    let toastTimeout = null;
+    function showToast(message, dotClass = "bg-sky-400") {
+      const toast = document.getElementById("status-toast");
+      const textEl = document.getElementById("status-toast-text");
+      const dotEl = document.getElementById("status-toast-dot");
+
+      textEl.textContent = message;
+      dotEl.className = `w-2.5 h-2.5 rounded-full ${dotClass} shrink-0`;
+
+      toast.classList.remove("opacity-0", "-translate-y-2");
+      toast.classList.add("opacity-100", "translate-y-0");
+
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove("opacity-100", "translate-y-0");
+        toast.classList.add("opacity-0", "-translate-y-2");
+      }, 3200);
+    }
+
+    // --- 3. ESCENA THREE.JS ---
+    const container = document.getElementById("scene-container");
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog("#e2effb", 9, 22);
+
+    const camera = new THREE.PerspectiveCamera(
+      38,
+      container.clientWidth / Math.max(container.clientHeight, 1),
+      0.1,
+      100
+    );
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 1.45;
+    controls.maxDistance = 7.2;
+    controls.maxPolarAngle = Math.PI * 0.485;
+    controls.minPolarAngle = 0.22;
+
+    // Luces
+    const hemiLight = new THREE.HemisphereLight("#ffffff", "#b8d9f2", 0.95);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight("#ffffff", 1.05);
+    dirLight.position.set(3.5, 6.8, 5.2);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 18;
+    const d = 3.0;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.bias = -0.0005;
+    scene.add(dirLight);
+
+    const rimLight = new THREE.DirectionalLight("#7dd3fc", 0.45);
+    rimLight.position.set(-4.0, 3.0, -3.5);
+    scene.add(rimLight);
+
+    // Suelo
+    const floorGroup = new THREE.Group();
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(7.5, 64),
+      new THREE.MeshStandardMaterial({ color: "#f8fbff", roughness: 0.85, metalness: 0.05 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    floorGroup.add(floor);
+
+    const floorRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.05, 1.1, 64),
+      new THREE.MeshBasicMaterial({ color: "#7dd3fc", side: THREE.DoubleSide })
+    );
+    floorRing.rotation.x = -Math.PI / 2;
+    floorRing.position.y = 0.003;
+    floorGroup.add(floorRing);
+    scene.add(floorGroup);
+
+    // --- 4. TEXTURAS EN CANVAS (CARA CUTE Y PANTALLA DEL PECHO) ---
+    const faceCanvas = document.createElement("canvas");
+    faceCanvas.width = 1024;
+    faceCanvas.height = 640;
+    const faceCtx = faceCanvas.getContext("2d");
+    const faceTexture = new THREE.CanvasTexture(faceCanvas);
+    faceTexture.anisotropy = 4;
+
+    const chestCanvas = document.createElement("canvas");
+    chestCanvas.width = 768;
+    chestCanvas.height = 512;
+    const chestCtx = chestCanvas.getContext("2d");
+    const chestTexture = new THREE.CanvasTexture(chestCanvas);
+    chestTexture.anisotropy = 4;
+
+    let currentExpression = "cute";
+    let isVoiceDemoActive = false;
+
+    const vitals = {
+      temp: "37.0 °C",
+      hr: "75 bpm",
+      spo2: "98 %",
+      bp: "118/76 mmHg",
+      weight: "60.0 kg",
+      height: "~1.70 m",
+      pill: "Vitamina D (8:00 AM)"
+    };
+
+    function drawFace(timeSec) {
+      const ctx = faceCtx;
+      const w = faceCanvas.width;
+      const h = faceCanvas.height;
+
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "#f0f9ff");
+      grad.addColorStop(1, "#e0f2fe");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = currentExpression === "reminder" ? "#f59e0b" : "#38bdf8";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.roundRect(14, 14, w - 28, h - 28, 44);
+      ctx.stroke();
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "700 24px Inter, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const headerMap = {
+        cute: "MEDIBOT · MODO CUTE 🫰🏽🥹",
+        listening: "MEDIBOT · ESCUCHANDO...",
+        speaking: "MEDIBOT · HABLANDO (IA)",
+        reminder: `PASTILLA: ${vitals.pill}`
+      };
+      ctx.fillText(headerMap[currentExpression] || headerMap.cute, 44, 54);
+
+      ctx.fillStyle = currentExpression === "reminder" ? "#d97706" : "#0284c7";
+      ctx.beginPath();
+      ctx.arc(w - 54, 54, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      const blinkPhase = timeSec % 4.0;
+      const blinking = blinkPhase > 3.84 && currentExpression !== "listening";
+
+      const leftEyeX = w * 0.30;
+      const rightEyeX = w * 0.70;
+      const eyeY = h * 0.48;
+
+      ctx.fillStyle = "rgba(251, 113, 133, 0.42)";
+      ctx.beginPath();
+      ctx.ellipse(w * 0.17, h * 0.62, 56, 28, 0, 0, Math.PI * 2);
+      ctx.ellipse(w * 0.83, h * 0.62, 56, 28, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (blinking) {
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 12;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(leftEyeX, eyeY, 44, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(rightEyeX, eyeY, 44, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+      } else {
+        [leftEyeX, rightEyeX].forEach((ex) => {
+          ctx.fillStyle = "#0f172a";
+          ctx.beginPath();
+          ctx.arc(ex, eyeY, 58, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#0284c7";
+          ctx.beginPath();
+          ctx.arc(ex, eyeY + 8, 36, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#0f172a";
+          ctx.beginPath();
+          ctx.arc(ex, eyeY + 10, 22, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(ex - 18, eyeY - 18, 17, 0, Math.PI * 2);
+          ctx.arc(ex + 16, eyeY + 12, 7.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      if (currentExpression === "listening" || isVoiceDemoActive) {
+        const wave = Math.sin(timeSec * 9) * 8;
+        ctx.strokeStyle = "#0ea5e9";
+        ctx.lineWidth = 7;
+        ctx.lineCap = "round";
+        [1, 2].forEach((ring) => {
+          ctx.beginPath();
+          ctx.arc(w * 0.5, h * 0.72, 130 + ring * 26 + wave, 0.15 * Math.PI, 0.85 * Math.PI);
+          ctx.stroke();
+        });
+      }
+
+      const mouthY = h * 0.67;
+      if (currentExpression === "speaking" || isVoiceDemoActive) {
+        const mouthOpen = 12 + Math.abs(Math.sin(timeSec * 11)) * 22;
+        ctx.fillStyle = "#f43f5e";
+        ctx.beginPath();
+        ctx.ellipse(w * 0.5, mouthY, 32, mouthOpen, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+      } else if (currentExpression === "reminder") {
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(w * 0.5, mouthY, 18, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 10;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(w * 0.5, mouthY - 12, 34, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+      }
+
+      const subtitleMap = {
+        cute: "¡Hola! ¿Cómo te sientes hoy? · 🫰🏽🥹",
+        listening: "Te escucho... dime tus síntomas o preguntas.",
+        speaking: "Estoy analizando tus signos y síntomas con IA.",
+        reminder: `Toma tu dosis: ${vitals.pill}`
+      };
+      ctx.fillStyle = "#334155";
+      ctx.font = "600 24px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(subtitleMap[currentExpression] || subtitleMap.cute, w * 0.5, h - 42);
+
+      faceTexture.needsUpdate = true;
+    }
+
+    function drawChest() {
+      const ctx = chestCtx;
+      const w = chestCanvas.width;
+      const h = chestCanvas.height;
+
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = "#0284c7";
+      ctx.fillRect(0, 0, w, 64);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 24px Inter, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("MEDIBOT · PREDIAGNÓSTICO Y SIGNOS", 24, 32);
+
+      const items = [
+        { label: "TEMP", val: vitals.temp, color: "#38bdf8", x: 24, y: 86 },
+        { label: "RITMO", val: vitals.hr, color: "#fb7185", x: 274, y: 86 },
+        { label: "OXÍGENO", val: vitals.spo2, color: "#2dd4bf", x: 524, y: 86 },
+        { label: "PRESIÓN", val: vitals.bp, color: "#facc15", x: 24, y: 196 },
+        { label: "PESO", val: vitals.weight, color: "#c084fc", x: 274, y: 196 },
+        { label: "ESTATURA", val: vitals.height, color: "#fb923c", x: 524, y: 196 }
+      ];
+
+      items.forEach((it) => {
+        ctx.fillStyle = "#1e293b";
+        ctx.beginPath();
+        ctx.roundRect(it.x, it.y, 220, 92, 16);
+        ctx.fill();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "700 14px Inter, sans-serif";
+        ctx.fillText(it.label, it.x + 16, it.y + 26);
+
+        ctx.fillStyle = it.color;
+        ctx.font = "800 24px Inter, sans-serif";
+        ctx.fillText(it.val, it.x + 16, it.y + 62);
+      });
+
+      ctx.fillStyle = "#172554";
+      ctx.beginPath();
+      ctx.roundRect(24, 312, w - 48, 172, 18);
+      ctx.fill();
+
+      ctx.fillStyle = "#93c5fd";
+      ctx.font = "700 18px Inter, sans-serif";
+      ctx.fillText("ASISTENTE DE PREDIAGNÓSTICO INTERACTIVO", 42, 346);
+
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "500 20px Inter, sans-serif";
+      ctx.fillText("Selecciona un síntoma o usa 'Probar Voz (Demo)':", 42, 382);
+
+      const chips = ["Fiebre", "Dolor de cabeza", "Mareo / Presión"];
+      chips.forEach((label, i) => {
+        const bx = 42 + i * 228;
+        ctx.fillStyle = "#0ea5e9";
+        ctx.beginPath();
+        ctx.roundRect(bx, 412, 212, 52, 14);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "700 18px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(label, bx + 106, 438);
+        ctx.textAlign = "left";
+      });
+
+      chestTexture.needsUpdate = true;
+    }
+
+    drawFace(0);
+    drawChest();
+
+    // --- SINCRONIZACIÓN CON LA PESTAÑA DE PREDIAGNÓSTICO ---
+    function syncWithStreamlitData(data) {
+      if (!data) return;
+
+      vitals.temp = `${Number(data.temperatura).toFixed(1)} °C`;
+      vitals.hr = `${data.pulso} bpm`;
+      vitals.spo2 = `${data.oxigeno} %`;
+      vitals.weight = `${Number(data.peso).toFixed(1)} kg`;
+      vitals.height = `~${(Number(data.estatura) / 100).toFixed(2)} m`;
+
+      const setEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+      setEl("vital-temp", vitals.temp);
+      setEl("vital-hr", vitals.hr);
+      setEl("vital-spo2", vitals.spo2);
+      setEl("vital-weight", vitals.weight);
+      setEl("vital-height", vitals.height);
+
+      if (data.nivel_urgencia && data.nivel_urgencia !== "CÓDIGO VERDE") {
+        vitals.pill = `${data.nombre} · ${data.nivel_urgencia}`;
+        currentExpression = "reminder";
+      } else {
+        currentExpression = "cute";
+      }
+
+      drawFace(performance.now() / 1000);
+      drawChest();
+    }
+
+    if (window.MEDIBOT_DATA) {
+      syncWithStreamlitData(window.MEDIBOT_DATA);
+    }
+
+    window.addEventListener("medibot:dataUpdated", (e) => {
+      syncWithStreamlitData(e.detail);
+    });
+
+    // --- 5. CONSTRUCCIÓN DEL ROBOT 3D ---
+    const robotGroup = new THREE.Group();
+    scene.add(robotGroup);
+
+    const whiteMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.25, metalness: 0.05 });
+    const blueMat = new THREE.MeshStandardMaterial({ color: "#38bdf8", roughness: 0.35, metalness: 0.08 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: "#0f172a", roughness: 0.35, metalness: 0.2 });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.8, metalness: 0.1 });
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: "#bae6fd",
+      transparent: true,
+      opacity: 0.45,
+      roughness: 0.15
+    });
+
+    function tagPart(group, msg) {
+      group.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          child.userData.toastMsg = msg;
+        }
+      });
+    }
+
+    // 1) Base con ruedas y báscula
+    const baseGroup = new THREE.Group();
+    baseGroup.position.y = 0.18;
+
+    const baseBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.68, 0.72, 0.24, 40),
+      whiteMat
+    );
+    baseGroup.add(baseBody);
+
+    const baseBand = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.70, 0.70, 0.045, 40),
+      blueMat
+    );
+    baseBand.position.y = -0.02;
+    baseGroup.add(baseBand);
+
+    const wheelGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.08, 24);
+    wheelGeo.rotateZ(Math.PI / 2);
+    const wheelPositions = [
+      [-0.58, -0.04, 0.32],
+      [0.58, -0.04, 0.32],
+      [-0.58, -0.04, -0.32],
+      [0.58, -0.04, -0.32]
+    ];
+    wheelPositions.forEach(([x, y, z]) => {
+      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+      wheel.position.set(x, y, z);
+      baseGroup.add(wheel);
+    });
+
+    const scalePlate = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.26, 0.03, 28),
+      blueMat
+    );
+    scalePlate.scale.set(1.2, 1, 0.8);
+    scalePlate.position.set(0, 0.13, 0.42);
+    baseGroup.add(scalePlate);
+
+    tagPart(baseGroup, "Base con 4 llantas (movilidad sin piernas bípedas) y báscula para medir peso.");
+    robotGroup.add(baseGroup);
+
+    // 2) Cuerpo redondo + pantalla interactiva + dispensador de pastillas
+    const bodyGroup = new THREE.Group();
+    bodyGroup.position.set(0, 1.05, 0);
+
+    const torsoSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.72, 40, 32),
+      whiteMat
+    );
+    torsoSphere.scale.set(1.04, 0.96, 0.96);
+    bodyGroup.add(torsoSphere);
+
+    const sidePatchGeo = new THREE.SphereGeometry(0.26, 24, 20);
+    sidePatchGeo.scale(0.25, 1.1, 0.85);
+    const leftPatch = new THREE.Mesh(sidePatchGeo, blueMat);
+    leftPatch.position.set(-0.73, 0.02, 0);
+    const rightPatch = new THREE.Mesh(sidePatchGeo, blueMat);
+    rightPatch.position.set(0.73, 0.02, 0);
+    bodyGroup.add(leftPatch, rightPatch);
+
+    const chestScreenGroup = new THREE.Group();
+    chestScreenGroup.position.set(0, 0.16, 0.67);
+    chestScreenGroup.rotation.x = -0.14;
+
+    const chestFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(0.78, 0.52, 0.04),
+      darkMat
+    );
+    chestScreenGroup.add(chestFrame);
+
+    const chestDisplay = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.72, 0.46),
+      new THREE.MeshBasicMaterial({ map: chestTexture })
+    );
+    chestDisplay.position.z = 0.022;
+    chestScreenGroup.add(chestDisplay);
+    bodyGroup.add(chestScreenGroup);
+
+    const pillGroup = new THREE.Group();
+    pillGroup.position.set(0, -0.32, 0.56);
+
+    const pillHousing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.54, 0.22, 0.24),
+      darkMat
+    );
+    pillGroup.add(pillHousing);
+
+    const pillTray = new THREE.Group();
+    const trayMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.46, 0.08, 0.20),
+      blueMat
+    );
+    trayMesh.position.y = -0.03;
+    pillTray.add(trayMesh);
+
+    const pillColors = ["#f43f5e", "#f59e0b", "#10b981"];
+    pillColors.forEach((col, idx) => {
+      const cap = new THREE.Mesh(
+        new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.025, 0.04, 6, 12) : new THREE.SphereGeometry(0.032, 14, 14),
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.3 })
+      );
+      cap.position.set(-0.12 + idx * 0.12, 0.025, 0.02);
+      pillTray.add(cap);
+    });
+    pillGroup.add(pillTray);
+
+    const pillCover = new THREE.Mesh(
+      new THREE.BoxGeometry(0.50, 0.14, 0.02),
+      glassMat
+    );
+    pillCover.position.set(0, 0.01, 0.12);
+    pillGroup.add(pillCover);
+
+    tagPart(pillGroup, "Compartimento de pastillas con recordatorio y bandeja para dosis específica.");
+    bodyGroup.add(pillGroup);
+    tagPart(bodyGroup, "Cuerpo redondo modificable con pantalla de prediagnóstico y pastillero.");
+    robotGroup.add(bodyGroup);
+
+    // 3) Brazos articulados
+    function createArm(side) {
+      const armPivot = new THREE.Group();
+      armPivot.position.set(side * 0.78, 1.24, 0);
+
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 16), blueMat);
+      armPivot.add(shoulder);
+
+      const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.10, 0.42, 20), whiteMat);
+      upperArm.position.y = -0.24;
+      armPivot.add(upperArm);
+
+      const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 14), blueMat);
+      elbow.position.y = -0.46;
+      armPivot.add(elbow);
+
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.13, 18, 16), whiteMat);
+      hand.position.y = -0.60;
+      armPivot.add(hand);
+
+      tagPart(armPivot, side < 0 ? "Brazo izquierdo asistencial." : "Brazo derecho con módulo de presión y temperatura.");
+      return armPivot;
+    }
+
+    const leftArm = createArm(-1);
+    const rightArm = createArm(1);
+    robotGroup.add(leftArm, rightArm);
+
+    // 4) Cabeza con carita cute en pantalla exterior
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 2.02, 0.04);
+
+    const headSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.54, 40, 32),
+      whiteMat
+    );
+    headSphere.scale.set(1.06, 0.95, 1.0);
+    headGroup.add(headSphere);
+
+    const faceScreenGroup = new THREE.Group();
+    faceScreenGroup.position.set(0, 0.02, 0.50);
+
+    const faceBezel = new THREE.Mesh(
+      new THREE.BoxGeometry(0.76, 0.50, 0.04),
+      darkMat
+    );
+    faceScreenGroup.add(faceBezel);
+
+    const facePlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.70, 0.44),
+      new THREE.MeshBasicMaterial({ map: faceTexture })
+    );
+    facePlane.position.z = 0.022;
+    faceScreenGroup.add(facePlane);
+
+    headGroup.add(faceScreenGroup);
+    tagPart(headGroup, "Cabeza con pantalla facial exterior (Carita cute 🫰🏽🥹, voz y escucha).");
+    robotGroup.add(headGroup);
+
+    // --- 6. CÁMARAS, CONTROLES Y ESTADO ---
+    const CAM_PRESETS = {
+      face: { pos: [0, 2.04, 2.05], target: [0, 2.02, 0.1] },
+      overview: { pos: [1.95, 2.15, 3.35], target: [0, 1.25, 0] },
+      vitals: { pos: [0.45, 1.32, 2.25], target: [0, 1.18, 0.35] },
+      pills: { pos: [0.55, 0.92, 2.15], target: [0, 0.74, 0.45] },
+      wheels: { pos: [1.35, 0.65, 2.15], target: [0, 0.22, 0.1] }
+    };
+
+    let activeCamPreset = "face";
+    let targetCamPos = new THREE.Vector3(...CAM_PRESETS.face.pos);
+    let targetLookAt = new THREE.Vector3(...CAM_PRESETS.face.target);
+    let isTransitioningCam = false;
+
+    camera.position.copy(targetCamPos);
+    controls.target.copy(targetLookAt);
+    controls.update();
+
+    function setCameraPreset(key) {
+      const preset = CAM_PRESETS[key] || CAM_PRESETS.face;
+      activeCamPreset = key;
+      targetCamPos.set(...preset.pos);
+      targetLookAt.set(...preset.target);
+      isTransitioningCam = true;
+
+      document.querySelectorAll(".cam-btn").forEach((btn) => {
+        const match = btn.getAttribute("data-cam") === key;
+        btn.classList.toggle("bg-sky-500", match);
+        btn.classList.toggle("text-white", match);
+        btn.classList.toggle("hover:bg-white/10", !match);
+        btn.classList.toggle("text-slate-200", !match);
+      });
+    }
+
+    document.querySelectorAll(".cam-btn").forEach((btn) => {
+      btn.addEventListener("click", () => setCameraPreset(btn.getAttribute("data-cam")));
+    });
+
+    controls.addEventListener("start", () => {
+      isTransitioningCam = false;
+    });
+
+    // Panel lateral
+    const panelEl = document.getElementById("inspector-panel");
+    const togglePanelBtn = document.getElementById("toggle-panel-btn");
+    const closePanelBtn = document.getElementById("close-panel-btn");
+    let panelOpen = false;
+
+    function setPanelState(open) {
+      panelOpen = open;
+      if (open) {
+        panelEl.classList.remove("translate-x-[115%]", "opacity-0", "pointer-events-none");
+        panelEl.classList.add("translate-x-0", "opacity-100", "pointer-events-auto");
+      } else {
+        panelEl.classList.add("translate-x-[115%]", "opacity-0", "pointer-events-none");
+        panelEl.classList.remove("translate-x-0", "opacity-100", "pointer-events-auto");
+      }
+    }
+
+    togglePanelBtn.addEventListener("click", () => setPanelState(!panelOpen));
+    closePanelBtn.addEventListener("click", () => setPanelState(false));
+
+    // Pastillero deslizable
+    let drawerOpen = false;
+    let drawerProgress = 0;
+    const toggleDrawerBtn = document.getElementById("toggle-drawer-btn");
+
+    function setDrawer(open) {
+      drawerOpen = open;
+      toggleDrawerBtn.textContent = open ? "Cerrar Pastillero" : "Abrir Pastillero";
+    }
+
+    toggleDrawerBtn.addEventListener("click", () => {
+      setDrawer(!drawerOpen);
+      showToast(drawerOpen ? "Bandeja de pastillas abierta." : "Bandeja de pastillas cerrada.", "bg-emerald-500");
+    });
+
+    // Simular signos biométricos
+    const simVitalsBtn = document.getElementById("sim-vitals-btn");
+    simVitalsBtn.addEventListener("click", () => {
+      const temps = ["36.5 °C", "36.8 °C", "37.2 °C", "36.6 °C"];
+      const hrs = ["72 bpm", "78 bpm", "84 bpm", "74 bpm"];
+      const spo2s = ["98 %", "99 %", "97 %"];
+      const bps = ["116/74 mmHg", "120/78 mmHg", "114/72 mmHg"];
+      const weights = ["59.8 kg", "60.0 kg", "60.4 kg"];
+
+      vitals.temp = temps[Math.floor(Math.random() * temps.length)];
+      vitals.hr = hrs[Math.floor(Math.random() * hrs.length)];
+      vitals.spo2 = spo2s[Math.floor(Math.random() * spo2s.length)];
+      vitals.bp = bps[Math.floor(Math.random() * bps.length)];
+      vitals.weight = weights[Math.floor(Math.random() * weights.length)];
+
+      document.getElementById("vital-temp").textContent = vitals.temp;
+      document.getElementById("vital-hr").textContent = vitals.hr;
+      document.getElementById("vital-spo2").textContent = vitals.spo2;
+      document.getElementById("vital-bp").textContent = vitals.bp;
+      document.getElementById("vital-weight").textContent = vitals.weight;
+
+      drawChest();
+      showToast("Signos biométricos actualizados en pantalla.", "bg-sky-500");
+    });
+
+    // Dispensar pastilla específica
+    document.querySelectorAll(".pill-dispense-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        vitals.pill = btn.getAttribute("data-pill");
+        setDrawer(true);
+        setRobotState("reminder", false);
+        drawChest();
+        showToast(`Recordatorio activo: ${vitals.pill}`, "bg-amber-500");
+      });
+    });
+
+    // --- 7. VOZ DEL ROBOT (HABLAR) Y MICRÓFONO (ESCUCHAR) ---
+    const voiceBtn = document.getElementById("voice-demo-btn");
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListeningMic = false;
+
+    function setRobotState(expr, activeDemo = false) {
+      currentExpression = expr;
+      isVoiceDemoActive = activeDemo;
+
+      document.querySelectorAll(".expr-btn").forEach((btn) => {
+        const isMatch = btn.getAttribute("data-expr") === expr;
+        btn.classList.toggle("bg-sky-500", isMatch);
+        btn.classList.toggle("text-white", isMatch);
+        btn.classList.toggle("shadow-sm", isMatch);
+        btn.classList.toggle("bg-slate-100", !isMatch);
+        btn.classList.toggle("text-slate-700", !isMatch);
+      });
+
+      drawFace(performance.now() / 1000);
+    }
+
+    document.querySelectorAll(".expr-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const expr = btn.getAttribute("data-expr");
+        setRobotState(expr, expr === "speaking" || expr === "listening");
+      });
+    });
+
+    function robotSpeak(text, onDone = null) {
+      if (!("speechSynthesis" in window)) {
+        setRobotState("speaking", true);
+        showToast(text, "bg-teal-500");
+        setTimeout(() => {
+          setRobotState("cute", false);
+          if (typeof onDone === "function") onDone();
+        }, 2500);
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "es-ES";
+      utterance.rate = 1.02;
+      utterance.pitch = 1.12;
+
+      const voices = window.speechSynthesis.getVoices();
+      const spanishVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("es"));
+      if (spanishVoice) utterance.voice = spanishVoice;
+
+      utterance.onstart = () => {
+        setRobotState("speaking", true);
+        showToast(text, "bg-teal-500");
+      };
+
+      const finishSpeak = () => {
+        setRobotState("cute", false);
+        if (typeof onDone === "function") onDone();
+      };
+
+      utterance.onend = finishSpeak;
+      utterance.onerror = finishSpeak;
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function responderAFrase(frase) {
+      const limpia = (frase || "").toLowerCase().trim();
+      const d = window.MEDIBOT_DATA || {};
+      const nombre = d.nombre || "paciente";
+
+      if (limpia.includes("pastilla") || limpia.includes("medicina") || limpia.includes("dosis")) {
+        setDrawer(true);
+        currentExpression = "reminder";
+        robotSpeak(`Recuerda tu dosis programada: ${vitals.pill}. Abrí la bandeja para ayudarte, ${nombre}.`);
+      } else if (limpia.includes("fiebre") || limpia.includes("temperatura") || limpia.includes("calor")) {
+        robotSpeak(`Tu temperatura registrada es de ${vitals.temp}. Si notas malestar o sube más, avisa a un médico.`);
+      } else if (limpia.includes("corazon") || limpia.includes("pulso") || limpia.includes("oxigeno") || limpia.includes("signos")) {
+        robotSpeak(`Tus signos actuales muestran ${vitals.hr}, oxigenación al ${vitals.spo2} y temperatura de ${vitals.temp}.`);
+      } else if (limpia.includes("dolor") || limpia.includes("cabeza") || limpia.includes("mareo") || limpia.includes("siento")) {
+        robotSpeak(`Entiendo, ${nombre}. Registré tu síntoma de "${frase}". Mantente hidratado y en reposo mientras se revisa.`);
+      } else {
+        robotSpeak(`Te escuché decir: "${frase}". Tus signos vitales están bajo monitoreo, ${nombre}.`);
+      }
+    }
+
+    function startRobotListening() {
+      if (!SpeechRecognitionAPI) {
+        setRobotState("listening", true);
+        showToast("Tu navegador no soporta micrófono web; prueba en Chrome o Edge.", "bg-amber-500");
+        setTimeout(() => setRobotState("cute", false), 2500);
+        return;
+      }
+
+      if (isListeningMic && recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+
+      recognition = new SpeechRecognitionAPI();
+      recognition.lang = "es-ES";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isListeningMic = true;
+        setRobotState("listening", true);
+        showToast("Micrófono activo: habla ahora con Medibot...", "bg-sky-500");
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results?.[0]?.[0]?.transcript || "";
+        isListeningMic = false;
+        if (transcript) {
+          responderAFrase(transcript);
+        } else {
+          setRobotState("cute", false);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        isListeningMic = false;
+        setRobotState("cute", false);
+        if (event.error === "not-allowed") {
+          showToast("Permite el acceso al micrófono en el navegador para que pueda escucharte.", "bg-rose-500");
+        } else {
+          showToast("No logré captar audio. Presiona 'Probar Voz (Demo)' para reintentar.", "bg-amber-500");
+        }
+      };
+
+      recognition.onend = () => {
+        isListeningMic = false;
+        if (currentExpression === "listening") {
+          setRobotState("cute", false);
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (e) {
+        isListeningMic = false;
+        setRobotState("cute", false);
+      }
+    }
+
+    if (voiceBtn) {
+      voiceBtn.addEventListener("click", () => {
+        const d = window.MEDIBOT_DATA || {};
+        const nombre = d.nombre || "paciente";
+        const urgencia = d.nivel_urgencia || "CÓDIGO VERDE";
+        const saludo = `Hola ${nombre}. Tu estado actual es ${urgencia}, con temperatura de ${vitals.temp} y oxigenación de ${vitals.spo2}. ¿Cómo te sientes hoy?`;
+
+        robotSpeak(saludo, () => {
+          startRobotListening();
+        });
+      });
+    }
+
+    // --- 8. TOQUE EN PARTES DEL ROBOT ---
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener("pointerup", (e) => {
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      if (dist > 6) return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(robotGroup.children, true);
+      if (hits.length > 0 && hits[0].object.userData.toastMsg) {
+        showToast(hits[0].object.userData.toastMsg, "bg-sky-500");
+      }
+    });
+
+    // --- 9. BUCLE DE ANIMACIÓN ---
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      // Respiración suave del cuerpo y cabeza
+      bodyGroup.position.y = 1.05 + Math.sin(elapsed * 2.1) * 0.015;
+      headGroup.position.y = 2.02 + Math.sin(elapsed * 2.1 + 0.4) * 0.018;
+      headGroup.rotation.y = Math.sin(elapsed * 0.9) * 0.05;
+
+      // Movimiento suave de brazos
+      leftArm.rotation.z = 0.08 + Math.sin(elapsed * 1.8) * 0.04;
+      rightArm.rotation.z = -0.08 - Math.sin(elapsed * 1.8) * 0.04;
+
+      // Deslizar bandeja de pastillas
+      const targetDrawer = drawerOpen ? 1 : 0;
+      drawerProgress += (targetDrawer - drawerProgress) * 0.12;
+      pillTray.position.z = drawerProgress * 0.16;
+
+      // Redibujar carita animada
+      drawFace(elapsed);
+
+      // Transición suave de cámara
+      if (isTransitioningCam) {
+        camera.position.lerp(targetCamPos, 0.08);
+        controls.target.lerp(targetLookAt, 0.08);
+        if (camera.position.distanceTo(targetCamPos) < 0.01 && controls.target.distanceTo(targetLookAt) < 0.01) {
+          isTransitioningCam = false;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener("resize", () => {
+      const w = container.clientWidth;
+      const h = Math.max(container.clientHeight, 1);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    animate();
+  </script>
+</body>
+</html>

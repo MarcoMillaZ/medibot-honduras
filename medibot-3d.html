@@ -652,6 +652,50 @@
 
     drawFace(0);
     drawChest();
+    // --- SINCRONIZACIÓN CON LA PESTAÑA DE PREDIAGNÓSTICO ---
+    function syncWithStreamlitData(data) {
+      if (!data) return;
+
+      // Actualizar valores internos que dibuja la pantalla 3D del pecho
+      vitals.temp = `${Number(data.temperatura).toFixed(1)} °C`;
+      vitals.hr = `${data.pulso} bpm`;
+      vitals.spo2 = `${data.oxigeno} %`;
+      vitals.weight = `${Number(data.peso).toFixed(1)} kg`;
+      vitals.height = `~${(Number(data.estatura) / 100).toFixed(2)} m`;
+
+      // Actualizar tarjetas del panel lateral si existen
+      const setEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+      setEl("vital-temp", vitals.temp);
+      setEl("vital-hr", vitals.hr);
+      setEl("vital-spo2", vitals.spo2);
+      setEl("vital-weight", vitals.weight);
+      setEl("vital-height", vitals.height);
+
+      // Si el paciente tiene alerta amarilla o roja, activar alerta visual en el robot
+      if (data.nivel_urgencia && data.nivel_urgencia !== "CÓDIGO VERDE") {
+        vitals.pill = `${data.nombre} · ${data.nivel_urgencia}`;
+        currentExpression = "reminder";
+      } else {
+        currentExpression = "cute";
+      }
+
+      // Redibujar ambas pantallas 3D al instante
+      drawFace(performance.now() / 1000);
+      drawChest();
+    }
+
+    // Ejecutar al cargar (por si Streamlit ya inyectó window.MEDIBOT_DATA)
+    if (window.MEDIBOT_DATA) {
+      syncWithStreamlitData(window.MEDIBOT_DATA);
+    }
+
+    // Escuchar actualizaciones en tiempo real
+    window.addEventListener("medibot:dataUpdated", (e) => {
+      syncWithStreamlitData(e.detail);
+    });
 
     // --- 5. CONSTRUCCIÓN DEL ROBOT 3D (ESTRUCTURA ORIGINAL + CARA MONTADA POR FUERA) ---
     const robotGroup = new THREE.Group();

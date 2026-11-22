@@ -1,3 +1,4 @@
+import json
 import os
 import streamlit as st
 import streamlit.components.v1 as components
@@ -32,19 +33,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-tab_app, tab_robot = st.tabs(
-    ["🩺 Prediagnóstico IA", "🤖 Prototipo Robot 3D"]
-)  #
+# Inicializar datos por defecto si aún no se ha ejecutado el triaje
+if "datos_paciente" not in st.session_state:
+  imc_inicial = 60.0 / ((170 / 100) ** 2)
+  st.session_state.datos_paciente = {
+      "nombre": "Marco Milla",
+      "edad": 16,
+      "peso": 60.0,
+      "estatura": 170,
+      "imc": round(imc_inicial, 2),
+      "temperatura": 37.0,
+      "oxigeno": 98,
+      "pulso": 75,
+      "sintomas": "Dolor de cabeza leve, fatiga y malestar general.",
+      "nivel_urgencia": "CÓDIGO VERDE",
+      "estado_clinico": "Estable",
+  }
 
-with tab_app:  #
+tab_app, tab_robot = st.tabs(["🩺 Prediagnóstico IA", "🤖 Prototipo Robot 3D"])
+
+with tab_app:
   col_izq, col_der = st.columns([1, 1.8], gap="large")
 
   with col_izq:
     st.markdown("### 🧬 Datos y Constantes")
     with st.form("formulario_triaje"):
-      nombre_paciente = st.text_input(
-          "Nombre Completo del Paciente", "Ej. Juan Pérez"
-      )
+      nombre_paciente = st.text_input("Nombre Completo del Paciente", "Marco Milla")
 
       col_sub1, col_sub2, col_sub3 = st.columns(3)
       with col_sub1:
@@ -103,6 +117,8 @@ with tab_app:  #
             nivel_urgencia = (
                 "🔴 CÓDIGO ROJO (Atención Médica Inmediata / Urgencia)"
             )
+            urgencia_corta = "CÓDIGO ROJO"
+            estado_clinico = "Urgente"
             color_alerta = "#ef4444"
           elif (
               (37.5 <= temperatura < 38.5)
@@ -112,12 +128,31 @@ with tab_app:  #
             nivel_urgencia = (
                 "🟡 CÓDIGO AMARILLO (Atención Prioritaria / Precaución)"
             )
+            urgencia_corta = "CÓDIGO AMARILLO"
+            estado_clinico = "Precaución"
             color_alerta = "#f59e0b"
           else:
             nivel_urgencia = (
                 "🟢 CÓDIGO VERDE (Paciente Estable / Consulta General)"
             )
+            urgencia_corta = "CÓDIGO VERDE"
+            estado_clinico = "Estable"
             color_alerta = "#10b981"
+
+          # Guardar datos sincronizados para el robot
+          st.session_state.datos_paciente = {
+              "nombre": nombre_paciente.strip(),
+              "edad": int(edad),
+              "peso": float(peso),
+              "estatura": int(estatura),
+              "imc": round(float(imc), 2),
+              "temperatura": float(temperatura),
+              "oxigeno": int(oxigeno),
+              "pulso": int(pulso),
+              "sintomas": sintomas.strip(),
+              "nivel_urgencia": urgencia_corta,
+              "estado_clinico": estado_clinico,
+          }
 
           reporte_medico = f"""
 ### 📋 REPORTE CLÍNICO DE EVALUACIÓN INICIAL
@@ -180,12 +215,26 @@ Hola **{nombre_paciente}**, hemos procesado tus datos y constantes vitales en nu
           " generar los reportes instantáneos."
       )
 
-with tab_robot:  #
-  st.subheader("Vista interactiva de Medibot")  #[cite: 12]
-  if os.path.exists("medibot-3d.html"):  #[cite: 12]
-    with open("medibot-3d.html", "r", encoding="utf-8") as f:  #[cite: 12]
-      html_robot = f.read()  #[cite: 12]
-    components.html(html_robot, height=680, scrolling=False)  #[cite: 12]
+with tab_robot:
+  st.subheader("Vista interactiva de Medibot")
+  if os.path.exists("medibot-3d.html"):
+    with open("medibot-3d.html", "r", encoding="utf-8") as f:
+      html_robot = f.read()
+
+    # Inyectamos los datos actuales del paciente en el HTML del robot
+    datos_json = json.dumps(st.session_state.datos_paciente, ensure_ascii=False)
+    script_sincronizacion = f"""
+        <script>
+            window.MEDIBOT_DATA = {datos_json};
+            window.dispatchEvent(new CustomEvent("medibot:dataUpdated", {{ detail: window.MEDIBOT_DATA }}));
+        </script>
+        """
+    if "</body>" in html_robot:
+      html_robot = html_robot.replace("</body>", f"{script_sincronizacion}\n</body>")
+    else:
+      html_robot = html_robot + script_sincronizacion
+
+    components.html(html_robot, height=680, scrolling=False)
   else:
     st.warning(
         "Aún no encuentro el archivo `medibot-3d.html` en la misma carpeta que"

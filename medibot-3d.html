@@ -91,7 +91,7 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
         </svg>
-        <span>Probar Voz (Demo)</span>
+        <span id="voice-btn-label">Hablar</span>
       </button>
 
       <button
@@ -323,7 +323,7 @@
       toastTimeout = setTimeout(() => {
         toast.classList.remove("opacity-100", "translate-y-0");
         toast.classList.add("opacity-0", "-translate-y-2");
-      }, 3200);
+      }, 4200);
     }
 
     // --- 3. ESCENA THREE.JS ---
@@ -405,7 +405,7 @@
     floorGroup.add(floorRing);
     scene.add(floorGroup);
 
-    // --- 4. TEXTURAS EN CANVAS (CARA CUTE Y PANTALLA DEL PECHO) ---
+    // --- 4. TEXTURAS EN CANVAS (CARA CUTE ORIGINAL Y PANTALLA DEL PECHO) ---
     const faceCanvas = document.createElement("canvas");
     faceCanvas.width = 1024;
     faceCanvas.height = 640;
@@ -438,128 +438,91 @@
       const w = faceCanvas.width;
       const h = faceCanvas.height;
 
-      const grad = ctx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, "#f0f9ff");
-      grad.addColorStop(1, "#e0f2fe");
-      ctx.fillStyle = grad;
+      // Fondo limpio blanco-azulado similar al prototipo original
+      ctx.fillStyle = "#eef7ff";
       ctx.fillRect(0, 0, w, h);
 
-      ctx.strokeStyle = currentExpression === "reminder" ? "#f59e0b" : "#38bdf8";
-      ctx.lineWidth = 10;
-      drawRoundedRect(ctx, 14, 14, w - 28, h - 28, 44);
-      ctx.stroke();
+      const blinkPhase = timeSec % 4.2;
+      const blinking = blinkPhase > 4.02 && currentExpression !== "listening";
 
-      ctx.fillStyle = "#0f172a";
-      ctx.font = "700 24px Inter, sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      const headerMap = {
-        cute: "MEDIBOT · MODO CUTE 🫰🏽🥹",
-        listening: "MEDIBOT · ESCUCHANDO...",
-        speaking: "MEDIBOT · HABLANDO (IA)",
-        reminder: `PASTILLA: ${vitals.pill}`
-      };
-      ctx.fillText(headerMap[currentExpression] || headerMap.cute, 44, 54);
+      const leftEyeX = w * 0.31;
+      const rightEyeX = w * 0.69;
+      const eyeY = h * 0.45;
 
-      ctx.fillStyle = currentExpression === "reminder" ? "#d97706" : "#0284c7";
+      // Mejillas rosadas suaves
+      ctx.fillStyle = "rgba(244, 114, 182, 0.35)";
       ctx.beginPath();
-      ctx.arc(w - 54, 54, 14, 0, Math.PI * 2);
+      ctx.ellipse(w * 0.19, h * 0.58, 48, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(w * 0.81, h * 0.58, 48, 22, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const blinkPhase = timeSec % 4.0;
-      const blinking = blinkPhase > 3.84 && currentExpression !== "listening";
-
-      const leftEyeX = w * 0.30;
-      const rightEyeX = w * 0.70;
-      const eyeY = h * 0.48;
-
-      ctx.fillStyle = "rgba(251, 113, 133, 0.42)";
-      ctx.beginPath();
-      ctx.ellipse(w * 0.17, h * 0.62, 56, 28, 0, 0, Math.PI * 2);
-      ctx.ellipse(w * 0.83, h * 0.62, 56, 28, 0, 0, Math.PI * 2);
-      ctx.fill();
-
+      // Ojos oscuros con iris celeste y brillos
       if (blinking) {
-        ctx.strokeStyle = "#0f172a";
-        ctx.lineWidth = 12;
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 11;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(leftEyeX, eyeY, 44, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(leftEyeX, eyeY, 42, 0.15 * Math.PI, 0.85 * Math.PI);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(rightEyeX, eyeY, 44, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(rightEyeX, eyeY, 42, 0.15 * Math.PI, 0.85 * Math.PI);
         ctx.stroke();
       } else {
         [leftEyeX, rightEyeX].forEach((ex) => {
-          ctx.fillStyle = "#0f172a";
+          ctx.fillStyle = "#1e293b";
           ctx.beginPath();
-          ctx.arc(ex, eyeY, 58, 0, Math.PI * 2);
+          ctx.arc(ex, eyeY, 54, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.fillStyle = "#0284c7";
+          ctx.fillStyle = "#0ea5e9";
           ctx.beginPath();
-          ctx.arc(ex, eyeY + 8, 36, 0, Math.PI * 2);
+          ctx.arc(ex, eyeY + 6, 32, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = "#0f172a";
           ctx.beginPath();
-          ctx.arc(ex, eyeY + 10, 22, 0, Math.PI * 2);
+          ctx.arc(ex, eyeY + 8, 19, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
-          ctx.arc(ex - 18, eyeY - 18, 17, 0, Math.PI * 2);
-          ctx.arc(ex + 16, eyeY + 12, 7.5, 0, Math.PI * 2);
+          ctx.arc(ex - 16, eyeY - 16, 15, 0, Math.PI * 2);
+          ctx.arc(ex + 15, eyeY + 11, 6.5, 0, Math.PI * 2);
           ctx.fill();
         });
       }
 
-      if (currentExpression === "listening" || isVoiceDemoActive) {
-        const wave = Math.sin(timeSec * 9) * 8;
-        ctx.strokeStyle = "#0ea5e9";
-        ctx.lineWidth = 7;
-        ctx.lineCap = "round";
-        [1, 2].forEach((ring) => {
-          ctx.beginPath();
-          ctx.arc(w * 0.5, h * 0.72, 130 + ring * 26 + wave, 0.15 * Math.PI, 0.85 * Math.PI);
-          ctx.stroke();
-        });
-      }
-
-      const mouthY = h * 0.67;
+      // Boca según expresión
+      const mouthY = h * 0.65;
       if (currentExpression === "speaking" || isVoiceDemoActive) {
-        const mouthOpen = 12 + Math.abs(Math.sin(timeSec * 11)) * 22;
-        ctx.fillStyle = "#f43f5e";
+        const mouthOpen = 10 + Math.abs(Math.sin(timeSec * 10)) * 18;
+        ctx.fillStyle = "#fb7185";
         ctx.beginPath();
-        ctx.ellipse(w * 0.5, mouthY, 32, mouthOpen, 0, 0, Math.PI * 2);
+        ctx.ellipse(w * 0.5, mouthY, 26, mouthOpen, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "#0f172a";
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+      } else if (currentExpression === "listening") {
+        const pulseR = 14 + Math.sin(timeSec * 7) * 4;
+        ctx.strokeStyle = "#0284c7";
         ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(w * 0.5, mouthY, pulseR, 0, Math.PI * 2);
         ctx.stroke();
       } else if (currentExpression === "reminder") {
         ctx.fillStyle = "#f59e0b";
         ctx.beginPath();
-        ctx.arc(w * 0.5, mouthY, 18, 0, Math.PI * 2);
+        ctx.arc(w * 0.5, mouthY, 15, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        ctx.strokeStyle = "#0f172a";
-        ctx.lineWidth = 10;
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 9;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(w * 0.5, mouthY - 12, 34, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(w * 0.5, mouthY - 12, 28, 0.15 * Math.PI, 0.85 * Math.PI);
         ctx.stroke();
       }
-
-      const subtitleMap = {
-        cute: "¡Hola! ¿Cómo te sientes hoy? · 🫰🏽🥹",
-        listening: "Te escucho... dime tus síntomas o preguntas.",
-        speaking: "Estoy analizando tus signos y síntomas con IA.",
-        reminder: `Toma tu dosis: ${vitals.pill}`
-      };
-      ctx.fillStyle = "#334155";
-      ctx.font = "600 24px Inter, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(subtitleMap[currentExpression] || subtitleMap.cute, w * 0.5, h - 42);
 
       faceTexture.needsUpdate = true;
     }
@@ -614,9 +577,9 @@
 
       ctx.fillStyle = "#f8fafc";
       ctx.font = "500 20px Inter, sans-serif";
-      ctx.fillText("Selecciona un síntoma o usa 'Probar Voz (Demo)':", 42, 382);
+      ctx.fillText("Presiona 'Hablar' para conversar con Medibot:", 42, 382);
 
-      const chips = ["Fiebre", "Dolor de cabeza", "Mareo / Presión"];
+      const chips = ["Fiebre", "Dolor de cabeza", "Malestar"];
       chips.forEach((label, i) => {
         const bx = 42 + i * 228;
         ctx.fillStyle = "#0ea5e9";
@@ -989,11 +952,27 @@
       });
     });
 
-    // --- 7. VOZ DEL ROBOT (HABLAR) Y MICRÓFONO (ESCUCHAR) ---
+    // --- 7. CONVERSACIÓN POR VOZ: HABLAR Y ESCUCHAR ---
     const voiceBtn = document.getElementById("voice-demo-btn");
+    const voiceBtnLabel = document.getElementById("voice-btn-label");
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
     let recognition = null;
     let isListeningMic = false;
+    let silenceGraceTimer = null;
+    let collectedSpeech = "";
+    let speakSafetyTimer = null;
+
+    function setVoiceButtonState(mode) {
+      if (!voiceBtnLabel) return;
+      if (mode === "listening") {
+        voiceBtnLabel.textContent = "Escuchando...";
+      } else if (mode === "speaking") {
+        voiceBtnLabel.textContent = "Hablando...";
+      } else {
+        voiceBtnLabel.textContent = "Hablar";
+      }
+    }
 
     function setRobotState(expr, activeDemo = false) {
       currentExpression = expr;
@@ -1008,6 +987,14 @@
         btn.classList.toggle("text-slate-700", !isMatch);
       });
 
+      if (expr === "listening") {
+        setVoiceButtonState("listening");
+      } else if (expr === "speaking") {
+        setVoiceButtonState("speaking");
+      } else {
+        setVoiceButtonState("idle");
+      }
+
       drawFace(performance.now() / 1000);
     }
 
@@ -1019,22 +1006,24 @@
     });
 
     function robotSpeak(text, onDone = null) {
+      clearTimeout(speakSafetyTimer);
+
       try {
         if (!("speechSynthesis" in window)) {
           setRobotState("speaking", true);
           showToast(text, "bg-teal-500");
-          setTimeout(() => {
+          speakSafetyTimer = setTimeout(() => {
             setRobotState("cute", false);
             if (typeof onDone === "function") onDone();
-          }, 2500);
+          }, 2600);
           return;
         }
 
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = "es-ES";
-        utterance.rate = 1.02;
-        utterance.pitch = 1.12;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.08;
 
         const voices = window.speechSynthesis.getVoices() || [];
         const spanishVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("es"));
@@ -1044,6 +1033,7 @@
         const finishSpeak = () => {
           if (finished) return;
           finished = true;
+          clearTimeout(speakSafetyTimer);
           setRobotState("cute", false);
           if (typeof onDone === "function") onDone();
         };
@@ -1059,102 +1049,174 @@
         setRobotState("speaking", true);
         window.speechSynthesis.speak(utterance);
 
-        // Respaldo por si speechSynthesis queda colgado sin disparar onend
-        setTimeout(finishSpeak, Math.max(3000, text.length * 75));
+        const estimatedMs = Math.max(4500, text.length * 85);
+        speakSafetyTimer = setTimeout(finishSpeak, estimatedMs);
       } catch (e) {
         setRobotState("cute", false);
         if (typeof onDone === "function") onDone();
       }
     }
 
-    function responderAFrase(frase) {
-      const limpia = (frase || "").toLowerCase().trim();
+    function generarRespuestaConversacional(mensajeUsuario) {
+      const texto = (mensajeUsuario || "").toLowerCase().trim();
       const d = window.MEDIBOT_DATA || {};
       const nombre = d.nombre || "paciente";
 
-      if (limpia.includes("pastilla") || limpia.includes("medicina") || limpia.includes("dosis")) {
+      if (texto.includes("cabeza") || texto.includes("migraña") || texto.includes("sien")) {
+        return `Entiendo que te duele la cabeza, ${nombre}. Te recomiendo descansar en un lugar tranquilo, tomar agua y evitar pantallas brillantes un rato. Si el dolor es muy fuerte o viene con visión borrosa o fiebre alta, conviene que lo revise un médico. ¿Tienes algún otro síntoma?`;
+      }
+      if (texto.includes("fiebre") || texto.includes("calor") || texto.includes("escalofrio") || texto.includes("escalofrío")) {
+        return `Con tu temperatura actual de ${vitals.temp}, si sientes fiebre o escalofríos es importante mantenerte bien hidratado, usar ropa ligera y vigilar cómo evoluciona. Si supera los 38.5 grados o no baja, busca atención médica. ¿Hace cuánto empezaste a sentirte así?`;
+      }
+      if (texto.includes("cansado") || texto.includes("cansada") || texto.includes("fatiga") || texto.includes("agotado") || texto.includes("sueño") || texto.includes("debil")) {
+        return `La fatiga o el cansancio pueden deberse a falta de descanso, deshidratación o algún malestar leve, ${nombre}. Te sugiero pausar un momento, tomar agua y revisar tus signos vitales. ¿Cómo has dormido estos días?`;
+      }
+      if (texto.includes("mareo") || texto.includes("mareado") || texto.includes("vertigo") || texto.includes("vértigo") || texto.includes("vista")) {
+        return `Si sientes mareo, siéntate o recuéstate despacio y evita levantarte de golpe para no caer. Revisa también tu hidratación y presión. ¿Sientes que el entorno gira o es más como debilidad?`;
+      }
+      if (texto.includes("garganta") || texto.includes("tos") || texto.includes("respirar") || texto.includes("pecho") || texto.includes("aire")) {
+        return `Si notas molestia en la garganta o tos leve, tomar líquidos tibios puede aliviar; pero si sientes falta de aire o dolor en el pecho, avisa de inmediato a un profesional de salud. Tu oxigenación registrada es de ${vitals.spo2}. ¿Cómo sientes tu respiración ahorita?`;
+      }
+      if (texto.includes("estomago") || texto.includes("estómago") || texto.includes("nausea") || texto.includes("náusea") || texto.includes("panza") || texto.includes("vomito") || texto.includes("vómito")) {
+        return `Para el malestar estomacal, lo mejor por ahora es beber agua o suero en sorbos pequeños y elegir comidas suaves y ligeras. Evita comidas muy pesadas o irritantes hoy. ¿Has podido comer algo sin molestias?`;
+      }
+      if (texto.includes("pastilla") || texto.includes("medicina") || texto.includes("medicamento") || texto.includes("dosis")) {
         setDrawer(true);
-        currentExpression = "reminder";
-        robotSpeak(`Recuerda tu dosis programada: ${vitals.pill}. Abrí la bandeja para ayudarte, ${nombre}.`);
-      } else if (limpia.includes("fiebre") || limpia.includes("temperatura") || limpia.includes("calor")) {
-        robotSpeak(`Tu temperatura registrada es de ${vitals.temp}. Si notas malestar o sube más, avisa a un médico.`);
-      } else if (limpia.includes("corazon") || limpia.includes("pulso") || limpia.includes("oxigeno") || limpia.includes("signos")) {
-        robotSpeak(`Tus signos actuales muestran ${vitals.hr}, oxigenación al ${vitals.spo2} y temperatura de ${vitals.temp}.`);
-      } else if (limpia.includes("dolor") || limpia.includes("cabeza") || limpia.includes("mareo") || limpia.includes("siento")) {
-        robotSpeak(`Entiendo, ${nombre}. Registré tu síntoma de "${frase}". Mantente hidratado y en reposo mientras se revisa.`);
-      } else {
-        robotSpeak(`Te escuché decir: "${frase}". Tus signos vitales están bajo monitoreo, ${nombre}.`);
+        return `Te abrí la bandeja de referencia y te recuerdo tu dosis configurada: ${vitals.pill}. Recuerda confirmar siempre la indicación exacta con tu médico o responsable antes de tomarla. ¿Quieres preguntarme algo más?`;
+      }
+      if (texto.includes("bien") || texto.includes("mejor") || texto.includes("tranquilo") || texto.includes("nada")) {
+        return `Qué bueno saber que te sientes bien, ${nombre}. Tus constantes de referencia marcan ${vitals.temp}, ritmo de ${vitals.hr} y oxígeno de ${vitals.spo2}. Si en algún momento notas algún cambio o molestia, aquí estoy para escucharte.`;
+      }
+
+      return `Gracias por contármelo, ${nombre}. Según lo que me comentas y tus signos actuales de ${vitals.temp} y ${vitals.spo2}, te recomiendo mantenerte hidratado, descansar y observar si el malestar aumenta para avisar a un médico a tiempo. ¿Quieres contarme algún detalle más de cómo te sientes?`;
+    }
+
+    function stopListeningCleanly() {
+      clearTimeout(silenceGraceTimer);
+      isListeningMic = false;
+      if (recognition) {
+        try {
+          recognition.onresult = null;
+          recognition.onerror = null;
+          recognition.onend = null;
+          recognition.stop();
+        } catch (e) {}
+        recognition = null;
       }
     }
 
-    function startRobotListening() {
+    function startConversationListening() {
       if (!SpeechRecognitionAPI) {
         setRobotState("listening", true);
-        showToast("Tu navegador no soporta micrófono web; prueba en Chrome o Edge.", "bg-amber-500");
+        showToast("Tu navegador no soporta reconocimiento de voz; usa Chrome o Edge.", "bg-amber-500");
         setTimeout(() => setRobotState("cute", false), 2500);
         return;
       }
 
-      if (isListeningMic && recognition) {
-        try { recognition.stop(); } catch (e) {}
-      }
+      stopListeningCleanly();
+      collectedSpeech = "";
 
       try {
         recognition = new SpeechRecognitionAPI();
         recognition.lang = "es-ES";
-        recognition.interimResults = false;
+        recognition.interimResults = true;
+        recognition.continuous = true;
         recognition.maxAlternatives = 1;
+
+        const finalizeUserTurn = () => {
+          clearTimeout(silenceGraceTimer);
+          const finalText = collectedSpeech.trim();
+          stopListeningCleanly();
+
+          if (finalText.length > 0) {
+            const respuesta = generarRespuestaConversacional(finalText);
+            robotSpeak(respuesta);
+          } else {
+            setRobotState("cute", false);
+            showToast("No escuché un mensaje. Presiona 'Hablar' cuando quieras conversar.", "bg-slate-500");
+          }
+        };
 
         recognition.onstart = () => {
           isListeningMic = true;
           setRobotState("listening", true);
-          showToast("Micrófono activo: habla ahora con Medibot...", "bg-sky-500");
+          showToast("Te escucho... explica con calma cómo te sientes.", "bg-sky-500");
         };
 
         recognition.onresult = (event) => {
-          const transcript = event.results?.[0]?.[0]?.transcript || "";
-          isListeningMic = false;
-          if (transcript) {
-            responderAFrase(transcript);
-          } else {
-            setRobotState("cute", false);
+          let combined = "";
+          for (let i = 0; i < event.results.length; i++) {
+            combined += event.results[i][0].transcript + " ";
           }
+          collectedSpeech = combined.trim();
+
+          // Esperar 1.8s después de que dejes de hablar para no cortarte a mitad de frase
+          clearTimeout(silenceGraceTimer);
+          silenceGraceTimer = setTimeout(() => {
+            finalizeUserTurn();
+          }, 1800);
         };
 
         recognition.onerror = (event) => {
-          isListeningMic = false;
+          const hadText = collectedSpeech.trim().length > 0;
+          clearTimeout(silenceGraceTimer);
+          stopListeningCleanly();
+
+          if (hadText) {
+            const respuesta = generarRespuestaConversacional(collectedSpeech.trim());
+            robotSpeak(respuesta);
+            return;
+          }
+
           setRobotState("cute", false);
           if (event.error === "not-allowed") {
-            showToast("Permite el acceso al micrófono en el navegador para que pueda escucharte.", "bg-rose-500");
-          } else {
-            showToast("No logré captar audio. Presiona 'Probar Voz (Demo)' para reintentar.", "bg-amber-500");
+            showToast("Permite el acceso al micrófono en el navegador para poder conversar.", "bg-rose-500");
+          } else if (event.error !== "no-speech") {
+            showToast("Hubo un detalle con el micrófono. Presiona 'Hablar' para intentar de nuevo.", "bg-amber-500");
           }
         };
 
         recognition.onend = () => {
-          isListeningMic = false;
-          if (currentExpression === "listening") {
+          if (!isListeningMic) return;
+          if (collectedSpeech.trim().length > 0) {
+            clearTimeout(silenceGraceTimer);
+            silenceGraceTimer = setTimeout(() => {
+              finalizeUserTurn();
+            }, 900);
+          } else {
+            stopListeningCleanly();
             setRobotState("cute", false);
           }
         };
 
         recognition.start();
       } catch (e) {
-        isListeningMic = false;
+        stopListeningCleanly();
         setRobotState("cute", false);
-        showToast("No se pudo iniciar el micrófono en este marco.", "bg-amber-500");
+        showToast("No se pudo activar el micrófono en este momento.", "bg-amber-500");
       }
     }
 
     if (voiceBtn) {
       voiceBtn.addEventListener("click", () => {
+        if (isListeningMic) {
+          const hadText = collectedSpeech.trim().length > 0;
+          clearTimeout(silenceGraceTimer);
+          stopListeningCleanly();
+          if (hadText) {
+            robotSpeak(generarRespuestaConversacional(collectedSpeech.trim()));
+          } else {
+            setRobotState("cute", false);
+          }
+          return;
+        }
+
         const d = window.MEDIBOT_DATA || {};
         const nombre = d.nombre || "paciente";
-        const urgencia = d.nivel_urgencia || "CÓDIGO VERDE";
-        const saludo = `Hola ${nombre}. Tu estado actual es ${urgencia}, con temperatura de ${vitals.temp} y oxigenación de ${vitals.spo2}. ¿Cómo te sientes hoy?`;
+        const saludoInicial = `Hola ${nombre}, ¿cómo estás hoy? Cuéntame cómo te sientes.`;
 
-        robotSpeak(saludo, () => {
-          startRobotListening();
+        robotSpeak(saludoInicial, () => {
+          startConversationListening();
         });
       });
     }
